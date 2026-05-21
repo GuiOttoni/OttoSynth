@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect x="0" y="0" width="64" height="64" rx="6" fill="#030605"/>
+  <rect x="2" y="2" width="60" height="60" rx="5" stroke="#00FF41" stroke-width="2" fill="none"/>
+  <text x="32" y="38" font-family="Cascadia Mono, Consolas, monospace" font-size="20" font-weight="bold"
+        text-anchor="middle" fill="#00FF41">OS</text>
+  <circle cx="32" cy="50" r="2" fill="#00FF41">
+    <animate attributeName="opacity" values="1;0;1" dur="1.2s" repeatCount="indefinite"/>
+  </circle>
+</svg>

@@ -1,0 +1,246 @@
+/**
+ * Custom Docusaurus theme — Matrix / Cyberpunk
+ * Phosphor green on near-black with Cascadia Mono.
+ */
+
+:root {
+  --ifm-color-primary: #00ff41;
+  --ifm-color-primary-dark: #00e63a;
+  --ifm-color-primary-darker: #00cc34;
+  --ifm-color-primary-darkest: #00a82a;
+  --ifm-color-primary-light: #1aff55;
+  --ifm-color-primary-lighter: #33ff66;
+  --ifm-color-primary-lightest: #66ff8c;
+
+  --ifm-font-family-base: 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+  --ifm-font-family-monospace: 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+  --ifm-heading-font-family: 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+
+  --ifm-code-font-size: 90%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 255, 65, 0.08);
+}
+
+/* Dark mode (default for this site) */
+[data-theme='dark'] {
+  --ifm-color-primary: #00ff41;
+  --ifm-color-primary-dark: #00e63a;
+  --ifm-color-primary-darker: #00cc34;
+  --ifm-color-primary-darkest: #00a82a;
+  --ifm-color-primary-light: #1aff55;
+  --ifm-color-primary-lighter: #33ff66;
+  --ifm-color-primary-lightest: #66ff8c;
+
+  --ifm-background-color: #030605;
+  --ifm-background-surface-color: #071a0e;
+  --ifm-color-content: #b0ffb0;
+  --ifm-color-content-secondary: #4fa659;
+
+  --ifm-navbar-background-color: #010402;
+  --ifm-footer-background-color: #010402;
+  --ifm-toc-link-color: #4fa659;
+
+  --docusaurus-highlighted-code-line-bg: rgba(0, 255, 65, 0.12);
+}
+
+/* Body background with subtle scanlines */
+html[data-theme='dark'] body {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 255, 65, 0.015) 0px,
+      rgba(0, 255, 65, 0.015) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    #030605;
+}
+
+/* Headings glow */
+[data-theme='dark'] h1,
+[data-theme='dark'] h2,
+[data-theme='dark'] h3,
+[data-theme='dark'] h4 {
+  color: #00ff41;
+  text-shadow: 0 0 4px rgba(0, 255, 65, 0.4);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+[data-theme='dark'] h1 {
+  border-bottom: 1px solid #1a4d23;
+  padding-bottom: 0.5em;
+}
+
+/* Code blocks */
+[data-theme='dark'] code,
+[data-theme='dark'] pre {
+  font-family: 'Cascadia Mono', 'Consolas', monospace;
+}
+
+[data-theme='dark'] code {
+  background-color: rgba(0, 255, 65, 0.08);
+  border: 1px solid #1a4d23;
+  color: #00ff41;
+  padding: 0.1em 0.4em;
+  border-radius: 0;
+}
+
+[data-theme='dark'] pre {
+  background-color: #010402 !important;
+  border: 1px solid #1a4d23;
+  border-radius: 0;
+}
+
+/* Links */
+[data-theme='dark'] a {
+  color: #00ff41;
+  text-decoration: none;
+}
+
+[data-theme='dark'] a:hover {
+  color: #66ff8c;
+  text-shadow: 0 0 6px rgba(0, 255, 65, 0.6);
+  text-decoration: none;
+}
+
+/* Tables */
+[data-theme='dark'] table {
+  border: 1px solid #1a4d23;
+  background-color: #071a0e;
+  display: table;
+  width: 100%;
+}
+
+[data-theme='dark'] table thead {
+  background-color: #0a1f12;
+}
+
+[data-theme='dark'] table th {
+  color: #00ff41;
+  border: 1px solid #1a4d23;
+  font-weight: 700;
+}
+
+[data-theme='dark'] table td {
+  border: 1px solid #0d2914;
+  color: #b0ffb0;
+}
+
+[data-theme='dark'] table tr:nth-child(2n) {
+  background-color: #0a1f12;
+}
+
+[data-theme='dark'] table tr:hover {
+  background-color: #143d1f;
+}
+
+/* Navbar */
+.navbar__title {
+  color: #00ff41 !important;
+  font-weight: 700;
+  text-shadow: 0 0 4px rgba(0, 255, 65, 0.6);
+}
+
+.navbar__link {
+  color: #4fa659 !important;
+}
+
+.navbar__link:hover,
+.navbar__link--active {
+  color: #00ff41 !important;
+}
+
+/* Sidebar */
+.menu__link {
+  color: #4fa659;
+  font-size: 0.92em;
+  border-radius: 0;
+}
+
+.menu__link:hover {
+  background-color: #0a1f12;
+  color: #00ff41;
+}
+
+.menu__link--active {
+  background-color: #0a1f12;
+  color: #00ff41 !important;
+  border-left: 2px solid #00ff41;
+}
+
+.menu__list-item-collapsible:hover {
+  background-color: #0a1f12;
+}
+
+/* Admonitions */
+[data-theme='dark'] .alert {
+  border-radius: 0;
+  border-left-width: 4px;
+}
+
+[data-theme='dark'] .alert--note,
+[data-theme='dark'] .alert--info {
+  background-color: rgba(0, 255, 65, 0.07);
+  border-color: #00ff41;
+  color: #b0ffb0;
+}
+
+[data-theme='dark'] .alert--warning,
+[data-theme='dark'] .alert--caution {
+  background-color: rgba(255, 176, 0, 0.08);
+  border-color: #ffb000;
+  color: #ffd699;
+}
+
+[data-theme='dark'] .alert--danger {
+  background-color: rgba(255, 0, 60, 0.08);
+  border-color: #ff003c;
+  color: #ff99b3;
+}
+
+/* Mermaid */
+.mermaid {
+  background-color: #030605 !important;
+  border: 1px solid #1a4d23;
+  padding: 1em;
+}
+
+/* Blockquotes */
+[data-theme='dark'] blockquote {
+  background-color: #0a1f12;
+  border-left: 4px solid #00ff41;
+  color: #b0ffb0;
+  border-radius: 0;
+  padding: 0.5em 1em;
+}
+
+/* Footer */
+.footer {
+  background-color: #010402;
+  border-top: 1px solid #1a4d23;
+  color: #4fa659;
+}
+
+/* Cursor blink for headings (Matrix style) */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+h1::before {
+  content: '> ';
+  color: #00ff41;
+  text-shadow: 0 0 6px rgba(0, 255, 65, 0.8);
+}
+
+h1::after {
+  content: '_';
+  color: #00ff41;
+  animation: blink 1s infinite;
+  margin-left: 0.2em;
+}
+
+/* Hide annoying "Edit this page" link if any leak through */
+.theme-edit-this-page {
+  display: none;
+}

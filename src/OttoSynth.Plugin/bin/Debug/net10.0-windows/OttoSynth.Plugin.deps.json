@@ -1,0 +1,128 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "OttoSynth.Plugin/1.0.0": {
+        "dependencies": {
+          "AudioPlugSharp": "0.7.9",
+          "AudioPlugSharpHost": "0.7.9",
+          "AudioPlugSharpWPF": "0.7.9",
+          "OttoSynth.Core": "1.0.0",
+          "OttoSynth.UI": "1.0.0"
+        },
+        "runtime": {
+          "OttoSynth.Plugin.dll": {}
+        }
+      },
+      "AudioPlugSharp/0.7.9": {
+        "runtime": {
+          "lib/net8.0/AudioPlugSharp.dll": {
+            "assemblyVersion": "0.7.9.0",
+            "fileVersion": "0.7.9.0"
+          }
+        }
+      },
+      "AudioPlugSharpHost/0.7.9": {
+        "dependencies": {
+          "AudioPlugSharp": "0.7.9"
+        },
+        "runtime": {
+          "lib/net8.0-windows7.0/AudioPlugSharpHost.dll": {
+            "assemblyVersion": "0.7.9.0",
+            "fileVersion": "0.7.9.0"
+          }
+        }
+      },
+      "AudioPlugSharpVst3/0.7.9": {
+        "dependencies": {
+          "AudioPlugSharp": "0.7.9"
+        },
+        "runtime": {
+          "lib/net8.0/AudioPlugSharpVst3.dll": {
+            "assemblyVersion": "0.7.9.0",
+            "fileVersion": "0.7.9.0"
+          }
+        }
+      },
+      "AudioPlugSharpWPF/0.7.9": {
+        "dependencies": {
+          "AudioPlugSharpVst3": "0.7.9"
+        },
+        "runtime": {
+          "lib/net8.0-windows7.0/AudioPlugSharpWPF.dll": {
+            "assemblyVersion": "0.7.9.0",
+            "fileVersion": "0.7.9.0"
+          }
+        }
+      },
+      "OttoSynth.Core/1.0.0": {
+        "runtime": {
+          "OttoSynth.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "OttoSynth.UI/1.0.0": {
+        "dependencies": {
+          "OttoSynth.Core": "1.0.0"
+        },
+        "runtime": {
+          "OttoSynth.UI.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "OttoSynth.Plugin/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "AudioPlugSharp/0.7.9": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-xLfbkt1RbAtZzqT53vMiIdlprPw0LUvYneOPmjd9MBXLyevEe9XqJa7T4tqFMyqJKBg8BzQ6LuGXavznbEnRWw==",
+      "path": "audioplugsharp/0.7.9",
+      "hashPath": "audioplugsharp.0.7.9.nupkg.sha512"
+    },
+    "AudioPlugSharpHost/0.7.9": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Lw/pd8K9J22jgtNkzxwZhVnzK+tGoD8bFV0vy3BU7v4XMZgdvYfYYQZbSccxYf/Z2w7ksLXc77qnwm2kDWw9/w==",
+      "path": "audioplugsharphost/0.7.9",
+      "hashPath": "audioplugsharphost.0.7.9.nupkg.sha512"
+    },
+    "AudioPlugSharpVst3/0.7.9": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-nnAAZjtW2c0cjZshj74nY275vyVMqrKw3eCdnQ9V3ef1LgtOmNqjm6bqXgiyoJlBK1fzFLrCUEK792HHk4Xt5Q==",
+      "path": "audioplugsharpvst3/0.7.9",
+      "hashPath": "audioplugsharpvst3.0.7.9.nupkg.sha512"
+    },
+    "AudioPlugSharpWPF/0.7.9": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-PDLs1dh2ZVHtDkt+c778PgnYBs2FPZzZw42vxp2VWmeRvhbAOixwYN+5Vibk3eqYxGmt+0lhaQuIWVijSeJuBw==",
+      "path": "audioplugsharpwpf/0.7.9",
+      "hashPath": "audioplugsharpwpf.0.7.9.nupkg.sha512"
+    },
+    "OttoSynth.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "OttoSynth.UI/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AudioPlugSharp" Version="0.7.9" />
+    <PackageReference Include="AudioPlugSharpHost" Version="0.7.9" />
+    <PackageReference Include="AudioPlugSharpWPF" Version="0.7.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OttoSynth.Core\OttoSynth.Core.csproj" />
+    <ProjectReference Include="..\OttoSynth.UI\OttoSynth.UI.csproj" />
+  </ItemGroup>
+
+</Project>

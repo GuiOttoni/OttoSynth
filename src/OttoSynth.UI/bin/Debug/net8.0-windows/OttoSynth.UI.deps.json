@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "OttoSynth.UI/1.0.0": {
+        "dependencies": {
+          "OttoSynth.Core": "1.0.0"
+        },
+        "runtime": {
+          "OttoSynth.UI.dll": {}
+        }
+      },
+      "OttoSynth.Core/1.0.0": {
+        "runtime": {
+          "OttoSynth.Core.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "OttoSynth.UI/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "OttoSynth.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

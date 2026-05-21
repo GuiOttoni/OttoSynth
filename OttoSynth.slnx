@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OttoSynth.Core/OttoSynth.Core.csproj" />
+    <Project Path="src/OttoSynth.Plugin/OttoSynth.Plugin.csproj" />
+    <Project Path="src/OttoSynth.Standalone/OttoSynth.Standalone.csproj" />
+    <Project Path="src/OttoSynth.UI/OttoSynth.UI.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OttoSynth.Core.Tests/OttoSynth.Core.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,30 @@
+services:
+  # Development: hot-reload, mounts source as volume
+  docs-dev:
+    build:
+      context: .
+      target: dev
+    image: ottosynth-docs:dev
+    container_name: ottosynth-docs-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./docs:/app/docs
+      - ./src:/app/src
+      - ./static:/app/static
+      - ./docusaurus.config.js:/app/docusaurus.config.js
+      - ./sidebars.js:/app/sidebars.js
+    environment:
+      - NODE_ENV=development
+    profiles: ["dev"]
+
+  # Production: pre-built static site served by nginx
+  docs:
+    build:
+      context: .
+      target: prod
+    image: ottosynth-docs:latest
+    container_name: ottosynth-docs
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
