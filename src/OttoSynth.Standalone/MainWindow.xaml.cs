@@ -7,7 +7,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using Microsoft.Win32;
-using NAudio.Midi;
 using OttoSynth.Core;
 using OttoSynth.Core.Diagnostics;
 using OttoSynth.Core.DSP.Effects;
@@ -122,7 +121,7 @@ public partial class MainWindow : Window
 
     private void MidiScanTimer_Tick(object? sender, EventArgs e)
     {
-        int count = MidiIn.NumberOfDevices;
+        int count = MidiService.DeviceCount;
         if (count != _lastMidiDeviceCount)
         {
             _lastMidiDeviceCount = count;
@@ -134,28 +133,17 @@ public partial class MainWindow : Window
     {
         _uiTimer?.Stop();
         _midiScanTimer?.Stop();
-        _midiIn?.Stop();
-        _midiIn?.Dispose();
-        _waveOut?.Stop();
-        _waveOut?.Dispose();
+        _midiService.Dispose();
+        _audioService.Dispose();
     }
 
     // ─── AUDIO ──────────────────────────────────────────────────
 
     private void InitializeAudio()
     {
-        const int sampleRate = 44100;
-        _engine.Initialize(sampleRate, 256);
-        _engine.SelectWavetable("Saw");
-
-        _waveProvider = new SynthWaveProvider(_engine, sampleRate, 2);
-
-        _waveOut = new WaveOutEvent { DesiredLatency = 50, NumberOfBuffers = 3 };
-        _waveOut.Init(_waveProvider);
-        _waveOut.Play();
-
-        SrText.Text = $"{sampleRate} Hz";
-        SpectrumView.SampleRate = sampleRate;
+        _audioService.Initialize(_engine, AudioService.DefaultSampleRate);
+        SrText.Text = $"{_audioService.SampleRate} Hz";
+        SpectrumView.SampleRate = _audioService.SampleRate;
     }
 
     private void PopulateCombos()
@@ -197,6 +185,11 @@ public partial class MainWindow : Window
         Osc1WarpType.SelectedIndex = 0;
         Osc2WarpType.SelectedIndex = 0;
         Osc3WarpType.SelectedIndex = 0;
+
+        // Glide modes
+        foreach (SynthVoice.GlideMode g in Enum.GetValues<SynthVoice.GlideMode>())
+            GlideModeCombo.Items.Add(g.ToString());
+        GlideModeCombo.SelectedIndex = 0;
     }
 
     private void PopulatePresets()
@@ -204,6 +197,14 @@ public partial class MainWindow : Window
         PresetSelector.Items.Clear();
         foreach (var p in FactoryPresets.All())
             PresetSelector.Items.Add(p.Name);
+
+        _userPresets.Clear();
+        foreach (var (_, preset) in _presetManager.ScanUserPresets())
+        {
+            _userPresets.Add(preset);
+            PresetSelector.Items.Add($"[User] {preset.Name}");
+        }
+
         PresetSelector.SelectedIndex = 0;
     }
 
@@ -211,98 +212,44 @@ public partial class MainWindow : Window
 
     private void PopulateMidiDevices()
     {
-        // Preserve the currently-selected device by name (so refresh doesn't drop the choice)
         string? previousName = MidiDeviceSelector.SelectedItem as string;
 
         MidiDeviceSelector.Items.Clear();
         MidiDeviceSelector.Items.Add("(None)");
-        int count = MidiIn.NumberOfDevices;
-        for (int i = 0; i < count; i++)
-        {
-            try
-            {
-                MidiDeviceSelector.Items.Add(MidiIn.DeviceInfo(i).ProductName);
-            }
-            catch (Exception ex)
-            {
-                MidiDeviceSelector.Items.Add($"<error: {ex.Message}>");
-            }
-        }
+        var deviceNames = _midiService.GetDeviceNames();
+        foreach (var name in deviceNames)
+            MidiDeviceSelector.Items.Add(name);
 
-        // Restore previous selection if still present, otherwise keep "(None)"
         if (previousName != null && MidiDeviceSelector.Items.Contains(previousName))
             MidiDeviceSelector.SelectedItem = previousName;
         else
             MidiDeviceSelector.SelectedIndex = 0;
 
-        StatusText.Text = count > 0
-            ? $"> {count} MIDI device(s) detected"
+        StatusText.Text = deviceNames.Count > 0
+            ? $"> {deviceNames.Count} MIDI device(s) detected"
             : "> NO MIDI DEVICES DETECTED — connect your controller and click [ ↻ ]";
     }
 
-    private void RefreshMidiBtn_Click(object sender, RoutedEventArgs e)
-    {
-        PopulateMidiDevices();
-    }
+    private void RefreshMidiBtn_Click(object sender, RoutedEventArgs e) => PopulateMidiDevices();
 
     private void MidiDeviceSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        _midiIn?.Stop();
-        _midiIn?.Dispose();
-        _midiIn = null;
-
         int idx = MidiDeviceSelector.SelectedIndex - 1;
-        if (idx >= 0 && idx < MidiIn.NumberOfDevices)
+        if (idx >= 0)
         {
             try
             {
-                _midiIn = new MidiIn(idx);
-                _midiIn.MessageReceived += MidiIn_MessageReceived;
-                _midiIn.ErrorReceived += (s, ev) => { /* ignore SysEx parse errors */ };
-                _midiIn.Start();
-                StatusText.Text = $"> CONNECTED: {MidiIn.DeviceInfo(idx).ProductName}";
+                _midiService.Connect(idx);
+                var names = _midiService.GetDeviceNames();
+                string deviceName = idx < names.Count ? names[idx] : $"device {idx}";
+                StatusText.Text = $"> CONNECTED: {deviceName}";
             }
             catch (Exception ex) { StatusText.Text = $"> MIDI ERROR: {ex.Message}"; }
         }
-        else if (MidiDeviceSelector.SelectedIndex == 0)
+        else
         {
+            _midiService.Disconnect();
             StatusText.Text = "> MIDI DISCONNECTED";
-        }
-    }
-
-    private void MidiIn_MessageReceived(object? sender, MidiInMessageEventArgs e)
-    {
-        byte status = (byte)(e.MidiEvent.CommandCode == MidiCommandCode.NoteOn ? 0x90 :
-            e.MidiEvent.CommandCode == MidiCommandCode.NoteOff ? 0x80 :
-            e.MidiEvent.CommandCode == MidiCommandCode.PitchWheelChange ? 0xE0 :
-            e.MidiEvent.CommandCode == MidiCommandCode.ControlChange ? 0xB0 : 0);
-        if (status == 0) return;
-
-        status |= (byte)(e.MidiEvent.Channel - 1);
-        byte d1 = 0, d2 = 0;
-
-        if (e.MidiEvent is NAudio.Midi.NoteEvent n) { d1 = (byte)n.NoteNumber; d2 = (byte)n.Velocity; }
-        else if (e.MidiEvent is NAudio.Midi.PitchWheelChangeEvent p)
-        {
-            int pitch = p.Pitch + 8192;
-            d1 = (byte)(pitch & 0x7F);
-            d2 = (byte)((pitch >> 7) & 0x7F);
-        }
-        else if (e.MidiEvent is NAudio.Midi.ControlChangeEvent cc)
-        {
-            d1 = (byte)cc.Controller;
-            d2 = (byte)cc.ControllerValue;
-        }
-
-        var parsed = MidiProcessor.Parse(status, d1, d2);
-        if (parsed.HasValue) _engine.ProcessMidiEvent(parsed.Value);
-
-        // Reflect note state on visual keyboard
-        if (e.MidiEvent is NAudio.Midi.NoteEvent ne)
-        {
-            int noteNum = ne.NoteNumber;
-            bool on = e.MidiEvent.CommandCode == MidiCommandCode.NoteOn && ne.Velocity > 0;
-            Dispatcher.BeginInvoke(() => Keyboard.SetNoteActive(noteNum, on));
         }
     }
 
@@ -376,6 +323,16 @@ public partial class MainWindow : Window
     private void FilterEnvAmt_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
         => _engine?.SetFilterEnvAmount(FilterEnvAmtKnob.Value);
 
+    private void GlideKnob_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) => ApplyGlide();
+    private void GlideModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplyGlide();
+
+    private void ApplyGlide()
+    {
+        if (_engine == null || GlideModeCombo.SelectedItem is not string modeStr) return;
+        if (Enum.TryParse<SynthVoice.GlideMode>(modeStr, out var mode))
+            _engine.SetPortamento(GlideTimeKnob.Value, mode);
+    }
+
     private void ApplyFilter()
     {
         if (_engine == null || FilterMode.SelectedItem is not string label) return;
@@ -438,7 +395,7 @@ public partial class MainWindow : Window
         StatusText.Text = "All notes off";
     }
 
-    private void PresetSelector_SelectionChanged(object sender, SelectionChangedEventArgs e) { /* on Load button click */ }
+    private void PresetSelector_SelectionChanged(object sender, SelectionChangedEventArgs e) { /* load on button click */ }
 
     private void LoadPresetBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -449,11 +406,89 @@ public partial class MainWindow : Window
         ReflectPresetIntoUi(preset);
         RefreshEffectsPanel();
         RefreshModMatrix();
-        StatusText.Text = $"Loaded preset: {preset.Name}";
+        StatusText.Text = $"> LOADED: {preset.Name}";
     }
 
-    private static PresetData? FindPreset(string name)
+    private void SavePresetBtn_Click(object sender, RoutedEventArgs e)
     {
+        var dlg = new SaveFileDialog
+        {
+            Title = "Save OttoSynth Preset",
+            Filter = "OttoSynth Preset (*.otto)|*.otto",
+            DefaultExt = ".otto",
+            FileName = "MyPreset"
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        try
+        {
+            string name = Path.GetFileNameWithoutExtension(dlg.FileName);
+            _presetManager.ExportToFile(_engine, dlg.FileName, name);
+            PopulatePresets();
+            StatusText.Text = $"> SAVED: {dlg.FileName}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"> SAVE ERROR: {ex.Message}";
+            Logger.Error("SavePreset", ex);
+        }
+    }
+
+    private void ImportPresetBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "Import OttoSynth Preset",
+            Filter = "OttoSynth Preset (*.otto;*.ottopreset)|*.otto;*.ottopreset|All files (*.*)|*.*"
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        try
+        {
+            var preset = _presetManager.ImportFromFile(dlg.FileName, _engine);
+            ReflectPresetIntoUi(preset);
+            RefreshEffectsPanel();
+            RefreshModMatrix();
+            StatusText.Text = $"> IMPORTED: {preset.Name}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"> IMPORT ERROR: {ex.Message}";
+            Logger.Error("ImportPreset", ex);
+        }
+    }
+
+    private void ExportPresetBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new SaveFileDialog
+        {
+            Title = "Export OttoSynth Preset",
+            Filter = "OttoSynth Preset (*.otto)|*.otto",
+            DefaultExt = ".otto",
+            FileName = "Export"
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        try
+        {
+            string name = Path.GetFileNameWithoutExtension(dlg.FileName);
+            _presetManager.ExportToFile(_engine, dlg.FileName, name);
+            StatusText.Text = $"> EXPORTED: {dlg.FileName}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"> EXPORT ERROR: {ex.Message}";
+            Logger.Error("ExportPreset", ex);
+        }
+    }
+
+    private PresetData? FindPreset(string name)
+    {
+        if (name.StartsWith("[User] "))
+        {
+            string userName = name["[User] ".Length..];
+            return _userPresets.FirstOrDefault(p => p.Name == userName);
+        }
         foreach (var p in FactoryPresets.All())
             if (p.Name == name) return p;
         return null;
@@ -502,6 +537,9 @@ public partial class MainWindow : Window
         Macro2Knob.Value = p.Macros[1];
         Macro3Knob.Value = p.Macros[2];
         Macro4Knob.Value = p.Macros[3];
+
+        GlideTimeKnob.Value = p.GlideTime;
+        GlideModeCombo.SelectedItem = p.GlideMode;
     }
 
     private void RefreshEffectsPanel()
@@ -551,15 +589,11 @@ public partial class MainWindow : Window
         {
             VoicesText.Text = $"VOICES:{_engine.VoiceManager.ActiveVoiceCount}";
 
-            if (_waveProvider != null)
-            {
-                _waveProvider.GetLastBuffer(_waveformSnapshot);
-                // Take a 512-sample slice for the waveform display, 1024 for spectrum
-                var smallSlice = new double[512];
-                Array.Copy(_waveformSnapshot, smallSlice, 512);
-                WaveformView.Samples = smallSlice;
-                SpectrumView.Samples = _waveformSnapshot;
-            }
+            _audioService.GetLastBuffer(_waveformSnapshot);
+            var smallSlice = new double[512];
+            Array.Copy(_waveformSnapshot, smallSlice, 512);
+            WaveformView.Samples = smallSlice;
+            SpectrumView.Samples = _waveformSnapshot;
 
             // Drain logger into the log textbox
             bool any = false;
@@ -594,56 +628,3 @@ public partial class MainWindow : Window
     }
 }
 
-/// <summary>
-/// NAudio wave provider bridging SynthEngine ↔ WaveOut.
-/// </summary>
-public class SynthWaveProvider : IWaveProvider
-{
-    private readonly SynthEngine _engine;
-    private readonly double[] _tempLeft = new double[4096];
-    private readonly double[] _tempRight = new double[4096];
-    private readonly object _lock = new();
-    private readonly double[] _lastBuffer = new double[1024];
-
-    public WaveFormat WaveFormat { get; }
-
-    public SynthWaveProvider(SynthEngine engine, int sampleRate, int channels)
-    {
-        _engine = engine;
-        WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, channels);
-    }
-
-    public int Read(byte[] buffer, int offset, int count)
-    {
-        int samples = count / (sizeof(float) * WaveFormat.Channels);
-        if (samples > _tempLeft.Length) samples = _tempLeft.Length;
-        _engine.ProcessAudio(_tempLeft, _tempRight, samples);
-
-        int byteIdx = offset;
-        for (int i = 0; i < samples; i++)
-        {
-            float l = (float)_tempLeft[i];
-            float r = WaveFormat.Channels > 1 ? (float)_tempRight[i] : l;
-            byte[] lb = BitConverter.GetBytes(l);
-            byte[] rb = BitConverter.GetBytes(r);
-            Buffer.BlockCopy(lb, 0, buffer, byteIdx, 4); byteIdx += 4;
-            if (WaveFormat.Channels > 1) { Buffer.BlockCopy(rb, 0, buffer, byteIdx, 4); byteIdx += 4; }
-        }
-
-        lock (_lock)
-        {
-            int copy = Math.Min(samples, _lastBuffer.Length);
-            Array.Copy(_tempLeft, _lastBuffer, copy);
-        }
-        return count;
-    }
-
-    public void GetLastBuffer(double[] output)
-    {
-        lock (_lock)
-        {
-            int copy = Math.Min(output.Length, _lastBuffer.Length);
-            Array.Copy(_lastBuffer, output, copy);
-        }
-    }
-}

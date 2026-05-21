@@ -104,9 +104,10 @@ public class StateVariableFilterTests
     [Fact]
     public void BypassWhenWideOpen()
     {
+        // Bypass triggers when cutoff = 20000 Hz (the maximum allowed) with no resonance in LP mode.
         var filter = new StateVariableFilter();
         filter.SetSampleRate(44100);
-        filter.Cutoff = 20000.0; // Wide open
+        filter.Cutoff = 20000.0;
         filter.Resonance = 0.0;
         filter.Mode = StateVariableFilter.FilterMode.LowPass;
 
@@ -119,7 +120,7 @@ public class StateVariableFilterTests
 
         filter.Process(input, output, sampleCount);
 
-        // Should pass through unchanged (bypass)
+        // Bypass path copies input unchanged
         for (int i = 0; i < sampleCount; i++)
         {
             Assert.Equal(input[i], output[i], precision: 10);

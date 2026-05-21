@@ -413,7 +413,8 @@ public sealed class StateVariableFilter
     {
         // ── Bypass logic ─────────────────────────────────────────
         // LP fully open at max cutoff with no resonance → passthrough
-        if (_mode == FilterMode.LowPass && _cutoff >= _sampleRate * 0.48 && _resonance < 0.01)
+        // Cutoff is clamped to 20000 Hz, so bypass when at that ceiling.
+        if (_mode == FilterMode.LowPass && _cutoff >= 20000.0 && _resonance < 0.01)
         {
             _bypass = true;
             return;

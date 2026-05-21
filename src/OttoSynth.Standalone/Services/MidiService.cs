@@ -20,6 +20,8 @@ public sealed class MidiService : IDisposable
 
     public int ActiveDeviceIndex { get; private set; } = -1;
 
+    public static int DeviceCount => MidiIn.NumberOfDevices;
+
     public MidiService(SynthEngine engine) => _engine = engine;
 
     public IReadOnlyList<string> GetDeviceNames()

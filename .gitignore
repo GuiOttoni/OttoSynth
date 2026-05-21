@@ -1,0 +1,142 @@
+# ─── .NET / MSBuild ─────────────────────────────────────────────────────────
+
+## Build output
+bin/
+obj/
+out/
+
+## NuGet packages
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!**/packages/repositories.config
+
+## NuGet package restore lock file (opt-in — remove if you commit it intentionally)
+# packages.lock.json
+
+## User-specific MSBuild files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Rider / JetBrains
+.idea/
+*.sln.iml
+
+## Visual Studio
+.vs/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio cache / options
+.vs/
+*.aps
+*.ncb
+*.opendb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+
+## VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# ─── .NET runtime artifacts ──────────────────────────────────────────────────
+
+## Publish output
+publish/
+[Pp]ublish/
+
+## ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+## Test results
+*.trx
+TestResults/
+coverage*/
+
+# ─── Audio / VST3 ────────────────────────────────────────────────────────────
+
+## Build artifacts for the VST3 plugin
+*.vst3
+*.dll.config
+*.runtimeconfig.json
+
+## OttoSynth user presets (user-generated; keep factory presets in src/)
+*.otto
+*.ottopreset
+
+# ─── Windows ─────────────────────────────────────────────────────────────────
+
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# ─── macOS ───────────────────────────────────────────────────────────────────
+
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# ─── Docs (Docusaurus / Node) ────────────────────────────────────────────────
+
+.docs/node_modules/
+.docs/.docusaurus/
+.docs/build/
+
+# ─── Claude Code / AI tooling ────────────────────────────────────────────────
+
+.claude/
+.context/
+.antigravitycli/
+
+# ─── Logs / temp ─────────────────────────────────────────────────────────────
+
+*.log
+*.tmp
+*.temp
+crash-*.txt
+
+# ─── Secrets / environment ───────────────────────────────────────────────────
+
+.env
+.env.*
+!.env.example
+secrets.json
+appsettings.Local.json
