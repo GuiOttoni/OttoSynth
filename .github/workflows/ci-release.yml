@@ -49,15 +49,18 @@ jobs:
         id: ver
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $versionFile = "$env:GITHUB_WORKSPACE/version.txt"
+          $bumpScript  = "$env:GITHUB_WORKSPACE/scripts/Bump-Version.ps1"
           $event = '${{ github.event_name }}'
           $bump  = 'none'
 
           if ($event -eq 'workflow_dispatch') {
-            & "$env:GITHUB_WORKSPACE/scripts/Bump-Version.ps1" -Part '${{ inputs.bump }}' -Label '${{ inputs.label }}'
+            & $bumpScript -Part '${{ inputs.bump }}' -Label '${{ inputs.label }}' -FilePath $versionFile
             $bump = '${{ inputs.bump }}'
           }
           elseif ($event -eq 'push') {
-            $current     = (Get-Content version.txt -Raw).Trim()
+            $current     = (Get-Content $versionFile -Raw).Trim()
             $isPreRelease = $current -match '-'
 
             $lastTag = git describe --tags --abbrev=0 2>$null
@@ -65,11 +68,9 @@ jobs:
             $msgs    = @(git log $range --pretty=format:'%s' 2>$null)
 
             if ($isPreRelease) {
-              # Em pre-release: qualquer commit relevante só sobe o contador beta
               $hit = $msgs | Where-Object { $_ -match '^(feat|fix|perf|refactor)(\(.+\))?[!:]|BREAKING.CHANGE' }
               if ($hit) { $bump = 'prerelease' }
             } else {
-              # Estável: semver completo
               foreach ($msg in $msgs) {
                 if ($msg -match 'BREAKING.CHANGE|^[^:]+!:')         { $bump = 'major'; break }
                 if ($msg -match '^feat(\(.+\))?:')                   { if ($bump -ne 'major') { $bump = 'minor' } }
@@ -78,17 +79,21 @@ jobs:
             }
 
             if ($bump -ne 'none') {
-              & "$env:GITHUB_WORKSPACE/scripts/Bump-Version.ps1" -Part $bump
+              & $bumpScript -Part $bump -FilePath $versionFile
+              $v = (Get-Content $versionFile -Raw).Trim()
+              Write-Host "version.txt after bump: $v"
               git config user.name  "github-actions[bot]"
               git config user.email "github-actions[bot]@users.noreply.github.com"
-              git add version.txt
-              $v = (Get-Content version.txt -Raw).Trim()
+              git add "$versionFile"
+              $staged = git diff --cached --name-only
+              Write-Host "Staged files: $staged"
+              if (-not $staged) { Write-Error "version.txt was not staged — bump failed to write the file"; exit 1 }
               git commit -m "chore: release $v [skip ci]"
               git push
             }
           }
 
-          $v = (Get-Content version.txt -Raw).Trim()
+          $v = (Get-Content $versionFile -Raw).Trim()
           "version=$v" >> $env:GITHUB_OUTPUT
           "bump=$bump"  >> $env:GITHUB_OUTPUT
           Write-Host "Bump: $bump | Version: $v"

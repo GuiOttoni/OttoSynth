@@ -14,22 +14,40 @@
     Prerelease label used when promoting a stable version to prerelease.
     Defaults to 'beta'.
 
+.PARAMETER FilePath
+    Absolute path to version.txt. Defaults to ../version.txt relative to
+    this script. Pass an absolute path from CI to avoid PSScriptRoot
+    resolution issues on hosted runners.
+
 .EXAMPLE
     ./scripts/Bump-Version.ps1 patch
     ./scripts/Bump-Version.ps1 prerelease
     ./scripts/Bump-Version.ps1 prerelease -Label rc
     ./scripts/Bump-Version.ps1 release
+    ./scripts/Bump-Version.ps1 patch -FilePath D:\a\OttoSynth\OttoSynth\version.txt
 #>
 param(
     [Parameter(Mandatory)]
     [ValidateSet('major','minor','patch','prerelease','release')]
     [string] $Part,
 
-    [string] $Label = 'beta'
+    [string] $Label = 'beta',
+
+    [string] $FilePath = ''
 )
 
-$file    = Join-Path $PSScriptRoot '..\version.txt'
-$current = (Get-Content $file -Raw).Trim()
+if ($FilePath -eq '') {
+    $FilePath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\version.txt'))
+}
+
+Write-Host "version.txt path: $FilePath"
+
+if (-not (Test-Path $FilePath)) {
+    Write-Error "version.txt not found at '$FilePath'"
+    exit 1
+}
+
+$current = (Get-Content $FilePath -Raw).Trim()
 
 if ($current -notmatch '^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z]+)\.(\d+))?$') {
     Write-Error "Cannot parse version '$current'. Expected format: 1.2.3 or 1.2.3-beta.1"
@@ -39,7 +57,7 @@ if ($current -notmatch '^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z]+)\.(\d+))?$') {
 $major    = [int]$Matches[1]
 $minor    = [int]$Matches[2]
 $patch    = [int]$Matches[3]
-$preLabel = $Matches[4]   # '' when stable
+$preLabel = $Matches[4]
 $preNum   = if ($Matches[5]) { [int]$Matches[5] } else { 0 }
 
 $new = switch ($Part) {
@@ -56,5 +74,5 @@ $new = switch ($Part) {
     'release'    { "$major.$minor.$patch" }
 }
 
-Set-Content -NoNewline $file $new
+Set-Content -NoNewline $FilePath $new
 Write-Host "$current → $new"
