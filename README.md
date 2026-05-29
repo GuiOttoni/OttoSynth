@@ -111,7 +111,7 @@ OttoSynth/
 
 ## Versão
 
-`v1.0.0-beta.1` — veja as [releases](https://github.com/GuiOttoni/OttoSynth/releases) para o instalador compilado.
+`v1.0.0-beta.2` — veja as [releases](https://github.com/GuiOttoni/OttoSynth/releases) para o instalador compilado.
 
 ---
 
@@ -153,29 +153,88 @@ dotnet publish src/OttoSynth.Standalone/OttoSynth.Standalone.csproj `
 ### Plugin VST3 (manual)
 
 1. Build do `OttoSynth.Plugin` em Release
-2. Copie todos os arquivos de `src/OttoSynth.Plugin/bin/Release/net10.0-windows/` para `C:\Program Files\Common Files\VST3\OttoSynth\`
-3. O bridge nativo `AudioPlugSharpVst.vst3` (incluso no NuGet) carrega o `OttoSynth.Plugin.dll` automaticamente
+2. Crie a estrutura de bundle exigida pelo Steinberg spec:
+   ```
+   C:\Program Files\Common Files\VST3\OttoSynth.vst3\Contents\x86_64-win\
+   ```
+3. Copie `AudioPlugSharpVst3.dll` para esse diretório com o nome `OttoSynth.vst3`
+4. Copie todos os demais `*.dll` e `*.json` do mesmo diretório de build para o mesmo destino
 
-> **Dica:** o instalador gerado pelo CI já cuida de ambos os passos acima. Use-o para instalações em produção.
+> **Dica:** o instalador gerado pelo CI já cuida de todos esses passos. Use-o para instalações em produção.
 
 ### Gerar o Instalador (Inno Setup)
 
 ```powershell
-# 1. Publicar o standalone primeiro
+# 1. Publicar o standalone
 dotnet publish src/OttoSynth.Standalone/OttoSynth.Standalone.csproj `
-    -p:PublishProfile=win-x64 -c Release
+    -c Release -r win-x64 --self-contained -p:PublishSingleFile=true `
+    -p:PublishReadyToRun=true --output artifacts/standalone
 
 # 2. Buildar o plugin VST3
 dotnet build src/OttoSynth.Plugin/OttoSynth.Plugin.csproj -c Release
 
 # 3. Compilar o instalador (requer Inno Setup 6 instalado)
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\OttoSynth.iss
-# Saída: installer\Output\OttoSynth-1.0.0-beta.1-Setup.exe
+# Saída: installer\Output\OttoSynth-1.0.0-beta.2-Setup.exe
 ```
 
 O instalador permite escolher entre:
 - **Standalone** — instala em `C:\Program Files\OttoSynth\`, cria atalho no Menu Iniciar
-- **VST3** — instala em `C:\Program Files\Common Files\VST3\OttoSynth\`
+- **VST3** — instala como bundle `C:\Program Files\Common Files\VST3\OttoSynth.vst3\`
+
+---
+
+## Versionamento
+
+O projeto segue **Semantic Versioning 2.0** (`MAJOR.MINOR.PATCH[-label.N]`).  
+A versão canônica é o arquivo `version.txt` na raiz do repositório.
+
+### Conventional Commits → bump automático
+
+O CI analisa as mensagens de commit desde a última tag e determina o tipo de bump automaticamente:
+
+| Prefixo do commit | Em pre-release | Em versão estável |
+|---|---|---|
+| `feat:`, `fix:`, `perf:`, `refactor:` | → `prerelease` (ex: `beta.2 → beta.3`) | — |
+| `fix:`, `perf:`, `refactor:` | — | → `patch` (ex: `1.0.0 → 1.0.1`) |
+| `feat:` | — | → `minor` (ex: `1.0.0 → 1.1.0`) |
+| `feat!:` ou `BREAKING CHANGE` | → `prerelease` | → `major` (ex: `1.0.0 → 2.0.0`) |
+| `chore:`, `docs:`, `ci:`, `style:`, `test:` | sem bump | sem bump |
+
+> Commits sem bump não geram release nem tag — apenas build e testes.
+
+### Exemplos de mensagens válidas
+
+```
+feat: add unison detune parameter
+fix: prevent voice stealing during sustain hold
+perf: reduce allocations in ProcessAudio hot path
+refactor: extract filter coefficient calc
+chore: update CI runner version   ← não gera release
+```
+
+### Bump manual via GitHub Actions
+
+Acesse **Actions → CI / Release → Run workflow** e selecione:
+
+| Input `bump` | Efeito |
+|---|---|
+| `prerelease` | `1.0.0 → 1.0.0-beta.1` ou `1.0.0-beta.1 → 1.0.0-beta.2` |
+| `patch` | `1.0.0 → 1.0.1` |
+| `minor` | `1.0.0 → 1.1.0` |
+| `major` | `1.0.0 → 2.0.0` |
+| `release` | `1.0.0-beta.2 → 1.0.0` (promove para estável) |
+
+O campo `label` controla o sufixo do pre-release (padrão: `beta`; opções: `rc`, `alpha`).
+
+### Bump manual local
+
+```powershell
+./scripts/Bump-Version.ps1 prerelease          # beta.N → beta.N+1
+./scripts/Bump-Version.ps1 prerelease -Label rc # → rc.1
+./scripts/Bump-Version.ps1 release             # remove sufixo
+./scripts/Bump-Version.ps1 patch               # 1.0.0 → 1.0.1
+```
 
 ---
 
@@ -183,14 +242,16 @@ O instalador permite escolher entre:
 
 O workflow `.github/workflows/ci-release.yml` executa em todo push ou PR para `main`:
 
-1. Restaura pacotes e roda os testes
-2. Publica o standalone (single-file self-contained)
-3. Builda o plugin VST3
-4. Compila o instalador Inno Setup
-5. Faz upload do `.exe` como artefato do build
-6. Em pushs para `main`: cria uma GitHub Release automática com o instalador anexado
+1. Analisa os commits desde a última tag e determina o bump (ver seção **Versionamento** acima)
+2. Atualiza `version.txt` e faz push do commit `chore: release X.Y.Z [skip ci]`
+3. Restaura pacotes e roda os testes
+4. Publica o standalone (single-file self-contained)
+5. Builda o plugin VST3
+6. Compila o instalador Inno Setup *(somente se houver bump)*
+7. Faz upload do `.exe` como artefato do build *(somente se houver bump)*
+8. Cria uma GitHub Release automática com o instalador anexado *(somente em push para `main` com bump)*
 
-Para criar uma release oficial, atualize `version.txt` e faça push para `main`.
+PRs para `main` executam somente os passos de build e teste — sem bump, sem release.
 
 ---
 
