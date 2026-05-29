@@ -2,9 +2,11 @@
 ; Usage (local):  ISCC.exe OttoSynth.iss
 ; Usage (CI):     ISCC.exe OttoSynth.iss "/DAppVersion=1.0.0-beta.1"
 ;
-; Prerequisites:
-;   dotnet publish src/OttoSynth.Standalone -p:PublishProfile=win-x64 -c Release
-;   dotnet build   src/OttoSynth.Plugin     -c Release
+; Prerequisites (run from repo root):
+;   dotnet publish src/OttoSynth.Standalone/OttoSynth.Standalone.csproj ^
+;     -c Release -r win-x64 --self-contained -p:PublishSingleFile=true ^
+;     -p:PublishReadyToRun=true --output artifacts/standalone
+;   dotnet build src/OttoSynth.Plugin/OttoSynth.Plugin.csproj -c Release
 
 #ifndef AppVersion
   #define AppVersion "1.0.0-beta.1"
@@ -14,7 +16,7 @@
 #define AppPublisher  "OttoSound"
 #define AppURL        "https://ottosound.io"
 #define AppExe        "OttoSynth.exe"
-#define StandaloneDir "..\src\OttoSynth.Standalone\publish\win-x64"
+#define StandaloneDir "..\artifacts\standalone"
 #define PluginDir     "..\src\OttoSynth.Plugin\bin\Release\net10.0-windows"
 
 [Setup]
@@ -31,6 +33,10 @@ DefaultGroupName={#AppName}
 AllowNoIcons=yes
 OutputDir=Output
 OutputBaseFilename={#AppName}-{#AppVersion}-Setup
+; VersionInfoVersion must be numeric (x.y.z.w); keep separate from the display version
+VersionInfoVersion=1.0.0.0
+VersionInfoDescription={#AppName} Setup
+VersionInfoCompany={#AppPublisher}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -57,20 +63,20 @@ Source: "{#StandaloneDir}\{#AppExe}"; DestDir: "{app}"; \
   Flags: ignoreversion; Components: standalone
 
 ; ── VST3 plugin ─────────────────────────────────────────────────
-; AudioPlugSharp bridge + managed plugin + dependencies
+; All VST3 entries use skipifsourcedoesntexist so ISCC never fails
+; if a file is missing (e.g. native bridge name differs between AudioPlugSharp versions).
 Source: "{#PluginDir}\AudioPlugSharpVst.vst3"; \
   DestDir: "{commoncf64}\VST3\{#AppName}"; \
-  Flags: ignoreversion; Components: vst3
+  Flags: ignoreversion skipifsourcedoesntexist; Components: vst3
 
 Source: "{#PluginDir}\OttoSynth.Plugin.dll"; \
   DestDir: "{commoncf64}\VST3\{#AppName}"; \
-  Flags: ignoreversion; Components: vst3
+  Flags: ignoreversion skipifsourcedoesntexist; Components: vst3
 
 Source: "{#PluginDir}\OttoSynth.Plugin.runtimeconfig.json"; \
   DestDir: "{commoncf64}\VST3\{#AppName}"; \
   Flags: ignoreversion skipifsourcedoesntexist; Components: vst3
 
-; Copy all managed DLLs the plugin needs (Core, UI and deps)
 Source: "{#PluginDir}\OttoSynth.Core.dll"; \
   DestDir: "{commoncf64}\VST3\{#AppName}"; \
   Flags: ignoreversion skipifsourcedoesntexist; Components: vst3

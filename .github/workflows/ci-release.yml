@@ -31,8 +31,8 @@ jobs:
         shell: pwsh
         run: |
           $v = (Get-Content version.txt).Trim()
-          echo "version=$v" >> $env:GITHUB_OUTPUT
-          echo "Version: $v"
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $v"
 
       # ── Restore ──────────────────────────────────────────────────
       - name: Restore
@@ -43,33 +43,25 @@ jobs:
         run: dotnet test tests/OttoSynth.Core.Tests --no-restore -c Release --logger "console;verbosity=minimal"
 
       # ── Publish standalone (single-file self-contained) ──────────
+      # Single-line command — avoids PowerShell backtick continuation issues in YAML.
+      # Outputs to artifacts/standalone/ so Inno Setup has a predictable path.
       - name: Publish Standalone
         shell: pwsh
-        run: |
-          $out = "$env:GITHUB_WORKSPACE/src/OttoSynth.Standalone/publish/win-x64"
-          dotnet publish src/OttoSynth.Standalone/OttoSynth.Standalone.csproj `
-            -c Release -r win-x64 --self-contained `
-            -p:PublishSingleFile=true `
-            -p:PublishReadyToRun=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:DebugType=none `
-            -o $out
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        run: dotnet publish src/OttoSynth.Standalone/OttoSynth.Standalone.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none --output artifacts/standalone
 
       # ── Verify standalone output ──────────────────────────────────
       - name: Verify Standalone Output
         shell: pwsh
         run: |
-          $exe = "src/OttoSynth.Standalone/publish/win-x64/OttoSynth.exe"
+          Write-Host "Searching for OttoSynth.exe in workspace..."
+          Get-ChildItem $env:GITHUB_WORKSPACE -Recurse -Filter "OttoSynth.exe" -ErrorAction SilentlyContinue |
+            Select-Object FullName, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
+          $exe = "artifacts/standalone/OttoSynth.exe"
           if (-not (Test-Path $exe)) {
-            Write-Error "OttoSynth.exe not found at expected path. Searching..."
-            Get-ChildItem src/OttoSynth.Standalone -Recurse -Include "*.exe" |
-              Select-Object FullName, Length
+            Write-Error "OttoSynth.exe not found at $exe"
             exit 1
           }
-          $mb = [math]::Round((Get-Item $exe).Length / 1MB, 1)
-          Write-Host "OK: $((Resolve-Path $exe).Path) (${mb} MB)"
+          Write-Host "OK: $((Resolve-Path $exe).Path)"
 
       # ── Build VST3 plugin ────────────────────────────────────────
       - name: Build VST3 Plugin
