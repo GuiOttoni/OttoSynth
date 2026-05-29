@@ -66,26 +66,43 @@ Source: "{#StandaloneDir}\{#AppExe}"; DestDir: "{app}"; \
   Flags: ignoreversion; Components: standalone
 
 ; ── VST3 plugin — bundle structure required by Steinberg spec ────
-; AudioPlugSharpVst3.dll is a mixed-mode C++/CLI DLL: it exposes the native
-; VST3 entry point (GetPluginFactory) and hosts the .NET CLR. DAWs load it
-; as a native DLL. It must be placed inside the bundle as OttoSynth.vst3.
-; All managed dependency DLLs go in the same directory so the CLR finds them.
+; The AudioPlugSharpVst3 NuGet package provides AudioPlugSharpVst.vst3, a native
+; C++/CLI mixed-mode DLL (576 KB) that exports GetPluginFactory and bootstraps
+; the .NET CLR via Ijwhost.dll. MSBuild renames it to $(TargetName)Bridge.vst3.
+; The installer must rename it again to OttoSynth.vst3 (matching the bundle name)
+; and rename the accompanying runtimeconfig/deps to match the new DLL base name,
+; so the IJW CLR host can locate the config files at load time.
 
-; Entry point: AudioPlugSharpVst3.dll → renamed to OttoSynth.vst3
-Source: "{#PluginDir}\AudioPlugSharpVst3.dll"; \
+; Native VST3 entry point
+Source: "{#PluginDir}\OttoSynth.PluginBridge.vst3"; \
   DestDir: "{#VST3BundleDir}"; DestName: "OttoSynth.vst3"; \
-  Flags: ignoreversion skipifsourcedoesntexist; Components: vst3
+  Flags: ignoreversion; Components: vst3
 
-; All managed DLLs (dependencies) — wildcard, excluding the bridge already renamed above
+; IJW CLR bootstrapper — must be alongside the native entry point
+Source: "{#PluginDir}\Ijwhost.dll"; \
+  DestDir: "{#VST3BundleDir}"; \
+  Flags: ignoreversion; Components: vst3
+
+; Bridge runtime config — renamed to match the installed entry point DLL base name
+Source: "{#PluginDir}\OttoSynth.PluginBridge.runtimeconfig.json"; \
+  DestDir: "{#VST3BundleDir}"; DestName: "OttoSynth.runtimeconfig.json"; \
+  Flags: ignoreversion; Components: vst3
+
+; Bridge deps — renamed to match the installed entry point DLL base name
+Source: "{#PluginDir}\OttoSynth.PluginBridge.deps.json"; \
+  DestDir: "{#VST3BundleDir}"; DestName: "OttoSynth.deps.json"; \
+  Flags: ignoreversion; Components: vst3
+
+; All managed DLLs
 Source: "{#PluginDir}\*.dll"; \
-  Excludes: "AudioPlugSharpVst3.dll"; \
   DestDir: "{#VST3BundleDir}"; \
-  Flags: ignoreversion skipifsourcedoesntexist; Components: vst3
+  Flags: ignoreversion; Components: vst3
 
-; Runtime config and deps manifest
+; Plugin runtime config and deps (bridge files excluded — already handled above with DestName)
 Source: "{#PluginDir}\*.json"; \
+  Excludes: "OttoSynth.PluginBridge.*"; \
   DestDir: "{#VST3BundleDir}"; \
-  Flags: ignoreversion skipifsourcedoesntexist; Components: vst3
+  Flags: ignoreversion; Components: vst3
 
 [Icons]
 Name: "{group}\{#AppName}";          Filename: "{app}\{#AppExe}"; Components: standalone

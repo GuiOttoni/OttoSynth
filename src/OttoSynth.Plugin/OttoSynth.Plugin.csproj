@@ -12,6 +12,7 @@
   <ItemGroup>
     <PackageReference Include="AudioPlugSharp" Version="0.7.9" />
     <PackageReference Include="AudioPlugSharpHost" Version="0.7.9" />
+    <PackageReference Include="AudioPlugSharpVst3" Version="0.7.9" />
     <PackageReference Include="AudioPlugSharpWPF" Version="0.7.9" />
   </ItemGroup>
 
