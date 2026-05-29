@@ -155,4 +155,27 @@ public sealed class Reverb : EffectBase
         Array.Clear(_preDelayR, 0, _preDelayR.Length);
         _preWriteIdx = 0;
     }
+
+    public override IReadOnlyList<EffectParameter> GetParameters() =>
+    [
+        new("Size",     "SIZE",      0,    1,    Size,     ""),
+        new("Decay",    "DECAY",     0,    1,    Decay,    ""),
+        new("Damping",  "DAMP",      0,    1,    Damping,  ""),
+        new("PreDelay", "PRE-DLY",   0,    0.2,  PreDelay, "s"),
+        new("Width",    "WIDTH",     0,    1,    Width,    ""),
+        new("Mix",      "MIX",       0,    1,    Mix,      ""),
+    ];
+
+    public override void SetParameter(string name, double value)
+    {
+        switch (name)
+        {
+            case "Size":     Size     = value; break;
+            case "Decay":    Decay    = value; break;
+            case "Damping":  Damping  = value; break;
+            case "PreDelay": PreDelay = value; break;
+            case "Width":    Width    = value; break;
+            case "Mix":      Mix      = value; break;
+        }
+    }
 }

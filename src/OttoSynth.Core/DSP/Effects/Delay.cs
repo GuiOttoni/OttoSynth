@@ -100,4 +100,25 @@ public sealed class Delay : EffectBase
         _dampL = 0;
         _dampR = 0;
     }
+
+    public override IReadOnlyList<EffectParameter> GetParameters() =>
+    [
+        new("TimeLeft",  "TIME L",   0, 2,   TimeLeft,  "s"),
+        new("TimeRight", "TIME R",   0, 2,   TimeRight, "s"),
+        new("Feedback",  "FDBK",     0, 0.95, Feedback, ""),
+        new("Damping",   "DAMP",     0, 1,   Damping,   ""),
+        new("Mix",       "MIX",      0, 1,   Mix,       ""),
+    ];
+
+    public override void SetParameter(string name, double value)
+    {
+        switch (name)
+        {
+            case "TimeLeft":  TimeLeft  = value; break;
+            case "TimeRight": TimeRight = value; break;
+            case "Feedback":  Feedback  = value; break;
+            case "Damping":   Damping   = value; break;
+            case "Mix":       Mix       = value; break;
+        }
+    }
 }

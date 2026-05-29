@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <Product>OttoSynth</Product>
+    <Company>OttoSound</Company>
+    <Copyright>Copyright © 2026 OttoSound</Copyright>
+    <Version>1.0.0-beta.1</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <RepositoryUrl>https://github.com/ottosound/ottosynth</RepositoryUrl>
+    <PackageProjectUrl>https://ottosound.io</PackageProjectUrl>
+    <Authors>OttoSound</Authors>
+    <Description>OttoSynth — professional wavetable synthesizer</Description>
+  </PropertyGroup>
+</Project>

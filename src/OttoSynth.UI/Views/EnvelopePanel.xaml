@@ -1,0 +1,69 @@
+<UserControl x:Class="OttoSynth.UI.Views.EnvelopePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:OttoSynth.UI.Controls">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Orientation="Vertical">
+        <!-- ENV1: Amp -->
+        <TextBlock Text="// AMP ENVELOPE" Style="{DynamicResource HeaderTextStyle}" Margin="0,0,0,6"/>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <UniformGrid Grid.Column="0" Columns="2">
+                <ctl:SynthKnob x:Name="AmpAttackKnob"  Label="ATTACK"  Minimum="0.001" Maximum="10" Value="{Binding AmpAttack, Mode=TwoWay}"   DefaultValue="0.01"  ValueFormat="F3" Unit="s"/>
+                <ctl:SynthKnob x:Name="AmpDecayKnob"   Label="DECAY"   Minimum="0.001" Maximum="10" Value="{Binding AmpDecay, Mode=TwoWay}"    DefaultValue="0.3"   ValueFormat="F2" Unit="s"/>
+                <ctl:SynthKnob x:Name="AmpSustainKnob" Label="SUSTAIN" Minimum="0"     Maximum="1"  Value="{Binding AmpSustain, Mode=TwoWay}"  DefaultValue="0.7"   ValueFormat="P0"/>
+                <ctl:SynthKnob x:Name="AmpReleaseKnob" Label="RELEASE" Minimum="0.001" Maximum="10" Value="{Binding AmpRelease, Mode=TwoWay}"  DefaultValue="0.5"   ValueFormat="F2" Unit="s"/>
+            </UniformGrid>
+            <ctl:EnvelopeEditor Grid.Column="1" x:Name="AmpEnvelopeView"
+                                Attack="{Binding Value, ElementName=AmpAttackKnob}"
+                                Decay="{Binding Value, ElementName=AmpDecayKnob}"
+                                Sustain="{Binding Value, ElementName=AmpSustainKnob}"
+                                Release="{Binding Value, ElementName=AmpReleaseKnob}"/>
+        </Grid>
+
+        <!-- ENV2: Filter -->
+        <TextBlock Text="// FILTER ENVELOPE" Style="{DynamicResource HeaderTextStyle}" Margin="0,10,0,6"/>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <UniformGrid Grid.Column="0" Columns="2">
+                <ctl:SynthKnob x:Name="FltAttackKnob"  Label="ATTACK"  Minimum="0.001" Maximum="10" Value="{Binding FilterAttack, Mode=TwoWay}"   DefaultValue="0.01"  ValueFormat="F3" Unit="s"/>
+                <ctl:SynthKnob x:Name="FltDecayKnob"   Label="DECAY"   Minimum="0.001" Maximum="10" Value="{Binding FilterDecay, Mode=TwoWay}"    DefaultValue="0.3"   ValueFormat="F2" Unit="s"/>
+                <ctl:SynthKnob x:Name="FltSustainKnob" Label="SUSTAIN" Minimum="0"     Maximum="1"  Value="{Binding FilterSustain, Mode=TwoWay}"  DefaultValue="0.7"   ValueFormat="P0"/>
+                <ctl:SynthKnob x:Name="FltReleaseKnob" Label="RELEASE" Minimum="0.001" Maximum="10" Value="{Binding FilterRelease, Mode=TwoWay}"  DefaultValue="0.5"   ValueFormat="F2" Unit="s"/>
+            </UniformGrid>
+            <ctl:EnvelopeEditor Grid.Column="1"
+                                Attack="{Binding Value, ElementName=FltAttackKnob}"
+                                Decay="{Binding Value, ElementName=FltDecayKnob}"
+                                Sustain="{Binding Value, ElementName=FltSustainKnob}"
+                                Release="{Binding Value, ElementName=FltReleaseKnob}"/>
+        </Grid>
+
+        <!-- ENV3: Free -->
+        <TextBlock Text="// FREE ENVELOPE (ENV3)" Style="{DynamicResource HeaderTextStyle}" Margin="0,10,0,6"/>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <UniformGrid Grid.Column="0" Columns="2">
+                <ctl:SynthKnob x:Name="FreeAttackKnob"  Label="ATTACK"  Minimum="0.001" Maximum="10" Value="{Binding FreeAttack, Mode=TwoWay}"   DefaultValue="0.01"  ValueFormat="F3" Unit="s"/>
+                <ctl:SynthKnob x:Name="FreeDecayKnob"   Label="DECAY"   Minimum="0.001" Maximum="10" Value="{Binding FreeDecay, Mode=TwoWay}"    DefaultValue="0.3"   ValueFormat="F2" Unit="s"/>
+                <ctl:SynthKnob x:Name="FreeSustainKnob" Label="SUSTAIN" Minimum="0"     Maximum="1"  Value="{Binding FreeSustain, Mode=TwoWay}"  DefaultValue="0.7"   ValueFormat="P0"/>
+                <ctl:SynthKnob x:Name="FreeReleaseKnob" Label="RELEASE" Minimum="0.001" Maximum="10" Value="{Binding FreeRelease, Mode=TwoWay}"  DefaultValue="0.5"   ValueFormat="F2" Unit="s"/>
+            </UniformGrid>
+            <ctl:EnvelopeEditor Grid.Column="1"
+                                Attack="{Binding Value, ElementName=FreeAttackKnob}"
+                                Decay="{Binding Value, ElementName=FreeDecayKnob}"
+                                Sustain="{Binding Value, ElementName=FreeSustainKnob}"
+                                Release="{Binding Value, ElementName=FreeReleaseKnob}"/>
+        </Grid>
+    </StackPanel>
+    </ScrollViewer>
+</UserControl>

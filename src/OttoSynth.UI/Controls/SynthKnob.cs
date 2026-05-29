@@ -61,17 +61,42 @@ public class SynthKnob : Control
 
     public static readonly DependencyProperty AccentBrushProperty = DependencyProperty.Register(
         nameof(AccentBrush), typeof(Brush), typeof(SynthKnob),
-        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0x00, 0xFF, 0x41))));
+        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0x00, 0xFF, 0x41)), OnValueChanged));
 
-    public double Minimum      { get => (double)GetValue(MinimumProperty);      set => SetValue(MinimumProperty, value); }
-    public double Maximum      { get => (double)GetValue(MaximumProperty);      set => SetValue(MaximumProperty, value); }
-    public double Value        { get => (double)GetValue(ValueProperty);        set => SetValue(ValueProperty, value); }
-    public double DefaultValue { get => (double)GetValue(DefaultValueProperty); set => SetValue(DefaultValueProperty, value); }
-    public bool   IsBipolar    { get => (bool)GetValue(IsBipolarProperty);      set => SetValue(IsBipolarProperty, value); }
-    public string Label        { get => (string)GetValue(LabelProperty);        set => SetValue(LabelProperty, value); }
-    public string Unit         { get => (string)GetValue(UnitProperty);         set => SetValue(UnitProperty, value); }
-    public string ValueFormat  { get => (string)GetValue(ValueFormatProperty);  set => SetValue(ValueFormatProperty, value); }
-    public Brush  AccentBrush  { get => (Brush)GetValue(AccentBrushProperty);   set => SetValue(AccentBrushProperty, value); }
+    public static readonly DependencyProperty TrackBrushProperty = DependencyProperty.Register(
+        nameof(TrackBrush), typeof(Brush), typeof(SynthKnob),
+        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0x0A, 0x29, 0x14)), OnValueChanged));
+
+    public static readonly DependencyProperty CenterFillBrushProperty = DependencyProperty.Register(
+        nameof(CenterFillBrush), typeof(Brush), typeof(SynthKnob),
+        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0x07, 0x1A, 0x0E)), OnValueChanged));
+
+    public static readonly DependencyProperty CenterBorderBrushProperty = DependencyProperty.Register(
+        nameof(CenterBorderBrush), typeof(Brush), typeof(SynthKnob),
+        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0x1A, 0x4D, 0x23)), OnValueChanged));
+
+    public static readonly DependencyProperty LabelBrushProperty = DependencyProperty.Register(
+        nameof(LabelBrush), typeof(Brush), typeof(SynthKnob),
+        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0x4F, 0xA6, 0x59)), OnValueChanged));
+
+    public static readonly DependencyProperty ValueBrushProperty = DependencyProperty.Register(
+        nameof(ValueBrush), typeof(Brush), typeof(SynthKnob),
+        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0xB0, 0xFF, 0xB0)), OnValueChanged));
+
+    public double Minimum        { get => (double)GetValue(MinimumProperty);        set => SetValue(MinimumProperty, value); }
+    public double Maximum        { get => (double)GetValue(MaximumProperty);        set => SetValue(MaximumProperty, value); }
+    public double Value          { get => (double)GetValue(ValueProperty);          set => SetValue(ValueProperty, value); }
+    public double DefaultValue   { get => (double)GetValue(DefaultValueProperty);   set => SetValue(DefaultValueProperty, value); }
+    public bool   IsBipolar      { get => (bool)GetValue(IsBipolarProperty);        set => SetValue(IsBipolarProperty, value); }
+    public string Label          { get => (string)GetValue(LabelProperty);          set => SetValue(LabelProperty, value); }
+    public string Unit           { get => (string)GetValue(UnitProperty);           set => SetValue(UnitProperty, value); }
+    public string ValueFormat    { get => (string)GetValue(ValueFormatProperty);    set => SetValue(ValueFormatProperty, value); }
+    public Brush  AccentBrush    { get => (Brush)GetValue(AccentBrushProperty);     set => SetValue(AccentBrushProperty, value); }
+    public Brush  TrackBrush     { get => (Brush)GetValue(TrackBrushProperty);      set => SetValue(TrackBrushProperty, value); }
+    public Brush  CenterFillBrush   { get => (Brush)GetValue(CenterFillBrushProperty);   set => SetValue(CenterFillBrushProperty, value); }
+    public Brush  CenterBorderBrush { get => (Brush)GetValue(CenterBorderBrushProperty); set => SetValue(CenterBorderBrushProperty, value); }
+    public Brush  LabelBrush     { get => (Brush)GetValue(LabelBrushProperty);      set => SetValue(LabelBrushProperty, value); }
+    public Brush  ValueBrush     { get => (Brush)GetValue(ValueBrushProperty);      set => SetValue(ValueBrushProperty, value); }
 
     public event RoutedPropertyChangedEventHandler<double>? ValueChanged;
 
@@ -84,8 +109,8 @@ public class SynthKnob : Control
 
     public SynthKnob()
     {
-        MinWidth  = 52;
-        MinHeight = 60;
+        MinWidth  = 40;
+        MinHeight = 48;
         Background = Brushes.Transparent;
         Focusable  = true;
         ToolTip    = "Drag ↕ to change  |  Shift+drag: fine\nDouble-click: enter value  |  Ctrl+dbl: reset";
@@ -137,7 +162,7 @@ public class SynthKnob : Control
         {
             var    current     = e.GetPosition(this);
             double dy          = start.Y - current.Y;
-            double sensitivity = (Keyboard.Modifiers & ModifierKeys.Shift) != 0 ? 0.001 : 0.005;
+            double sensitivity = (Keyboard.Modifiers & ModifierKeys.Shift) != 0 ? 0.0005 : 0.003;
             double range       = Maximum - Minimum;
             Value = _dragStartValue + dy * sensitivity * range;
         }
@@ -167,17 +192,24 @@ public class SynthKnob : Control
     {
         _discardInput = false;
 
+        var accentBrush = (TryFindResource("AccentPrimaryBrush") as Brush)
+                          ?? new SolidColorBrush(Color.FromRgb(0x00, 0xFF, 0x41));
+        var bgBrush     = (TryFindResource("BackgroundSecondaryBrush") as Brush)
+                          ?? new SolidColorBrush(Color.FromRgb(0x07, 0x1A, 0x0E));
+        var accentColor = accentBrush is SolidColorBrush scb
+                          ? scb.Color
+                          : Color.FromRgb(0x00, 0xFF, 0x41);
+
         _inputBox = new TextBox
         {
             Width  = 90,
             Height = 28,
-            Background = new SolidColorBrush(Color.FromRgb(0x07, 0x1A, 0x0E)),
-            Foreground = new SolidColorBrush(Color.FromRgb(0x00, 0xFF, 0x41)),
-            CaretBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xFF, 0x41)),
-            SelectionBrush = new SolidColorBrush(Color.FromArgb(0x55, 0x00, 0xFF, 0x41)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xFF, 0x41)),
+            Background     = bgBrush,
+            Foreground     = accentBrush,
+            CaretBrush     = accentBrush,
+            SelectionBrush = accentBrush,
             BorderThickness = new Thickness(0),
-            FontFamily = new FontFamily("Cascadia Mono"),
+            FontFamily = new FontFamily("Cascadia Mono, Consolas"),
             FontSize   = 11,
             Text = Value.ToString("G6", CultureInfo.InvariantCulture),
             HorizontalContentAlignment = HorizontalAlignment.Center,
@@ -189,15 +221,15 @@ public class SynthKnob : Control
 
         var border = new Border
         {
-            Background      = new SolidColorBrush(Color.FromRgb(0x07, 0x1A, 0x0E)),
-            BorderBrush     = new SolidColorBrush(Color.FromRgb(0x00, 0xFF, 0x41)),
+            Background      = bgBrush,
+            BorderBrush     = accentBrush,
             BorderThickness = new Thickness(1),
             Padding         = new Thickness(2),
             Child           = _inputBox,
         };
         border.Effect = new System.Windows.Media.Effects.DropShadowEffect
         {
-            Color       = Color.FromRgb(0x00, 0xFF, 0x41),
+            Color       = accentColor,
             BlurRadius  = 8,
             ShadowDepth = 0,
             Opacity     = 0.6,
@@ -268,12 +300,12 @@ public class SynthKnob : Control
         // Label
         if (hasLabel)
         {
-            var ft = MakeText(Label, 9, Color.FromRgb(0x4F, 0xA6, 0x59), w);
+            var ft = MakeText(Label, 9, LabelBrush, w);
             dc.DrawText(ft, new Point(0, 0));
         }
 
         // Track ring
-        var trackPen = new Pen(new SolidColorBrush(Color.FromRgb(0x0A, 0x29, 0x14)), 3.5);
+        var trackPen = new Pen(TrackBrush, 3.5);
         dc.DrawEllipse(null, trackPen, new Point(cx, cy), radius, radius);
 
         // Active arc
@@ -304,21 +336,16 @@ public class SynthKnob : Control
         dc.DrawLine(indPen, new Point(ix, iy), new Point(ox, oy));
 
         // Center disc
-        var centerBrush = new LinearGradientBrush(
-            Color.FromRgb(0x07, 0x1A, 0x0E),
-            Color.FromRgb(0x01, 0x04, 0x02),
-            new Point(0, 0), new Point(0, 1));
-        dc.DrawEllipse(centerBrush,
-            new Pen(new SolidColorBrush(Color.FromRgb(0x1A, 0x4D, 0x23)), 1),
+        dc.DrawEllipse(CenterFillBrush,
+            new Pen(CenterBorderBrush, 1),
             new Point(cx, cy), radius * 0.58, radius * 0.58);
 
         // Value text
-        var valFt = MakeText(FormatValue(Value), 9, Color.FromRgb(0xB0, 0xFF, 0xB0), w,
-            FontWeights.Medium);
+        var valFt = MakeText(FormatValue(Value), 9, ValueBrush, w, FontWeights.Medium);
         dc.DrawText(valFt, new Point(0, h - valueH - 1));
     }
 
-    private static FormattedText MakeText(string text, double size, Color color, double maxWidth,
+    private static FormattedText MakeText(string text, double size, Brush brush, double maxWidth,
         FontWeight? weight = null)
     {
         var tf = new Typeface(
@@ -330,7 +357,7 @@ public class SynthKnob : Control
             CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight,
             tf, size,
-            new SolidColorBrush(color),
+            brush,
             96.0)
         {
             TextAlignment = TextAlignment.Center,

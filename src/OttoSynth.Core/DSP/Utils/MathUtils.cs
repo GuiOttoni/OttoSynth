@@ -11,6 +11,8 @@ public static class MathUtils
 {
     public const double TwoPi = 2.0 * Math.PI;
     public const double HalfPi = Math.PI / 2.0;
+    public const double Ln2 = 0.6931471805599453;      // Math.Log(2)
+    public const double Ln2Over12 = Ln2 / 12.0;        // for semitone → ratio conversion
     public const int SinTableSize = 4096;
 
     private static readonly double[] _sinTable;
@@ -167,11 +169,12 @@ public static class MathUtils
 
     /// <summary>
     /// Semitone offset to frequency multiplier.
+    /// Uses Math.Exp(x * Ln2/12) — faster than Math.Pow(2, x/12) on all platforms.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double SemitonesToFrequencyRatio(double semitones)
     {
-        return Math.Pow(2.0, semitones / 12.0);
+        return Math.Exp(semitones * Ln2Over12);
     }
 
     /// <summary>

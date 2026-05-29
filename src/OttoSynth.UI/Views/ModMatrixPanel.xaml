@@ -1,0 +1,63 @@
+<UserControl x:Class="OttoSynth.UI.Views.ModMatrixPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:OttoSynth.UI.Controls"
+             xmlns:vm="clr-namespace:OttoSynth.UI.ViewModels">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Button Grid.Row="0" Content="+ Route" Style="{DynamicResource SynthButtonStyle}"
+                HorizontalAlignment="Right" Margin="0,0,0,4"
+                Command="{Binding Matrix.AddRouteCommand}" ToolTip="Add a modulation route"/>
+
+        <!-- Routes list (no inner ScrollViewer — outer panel scrolls) -->
+        <ItemsControl Grid.Row="1" ItemsSource="{Binding Matrix.Routes}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:ModRouteViewModel}">
+                    <Grid Margin="0,1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="60"/>
+                            <ColumnDefinition Width="24"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox Grid.Column="0" Style="{DynamicResource SynthComboBoxStyle}"
+                                  ItemsSource="{Binding DataContext.Matrix.Sources, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                  SelectedItem="{Binding Source, Mode=TwoWay}"/>
+                        <TextBlock Grid.Column="1" Text="→"
+                                   Foreground="{DynamicResource AccentPrimaryBrush}"
+                                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <ComboBox Grid.Column="2" Style="{DynamicResource SynthComboBoxStyle}"
+                                  ItemsSource="{Binding DataContext.Matrix.Destinations, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                  SelectedItem="{Binding Destination, Mode=TwoWay}"/>
+                        <ctl:SynthSlider Grid.Column="3" Minimum="-1" Maximum="1" DefaultValue="0"
+                                         Value="{Binding Amount, Mode=TwoWay}"
+                                         VerticalAlignment="Center" Margin="4,0"/>
+                        <Button Grid.Column="4" Content="×" Style="{DynamicResource SynthButtonStyle}"
+                                FontSize="11" Padding="2,1"
+                                Command="{Binding DataContext.Matrix.RemoveRouteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}"/>
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Macros + Master -->
+        <UniformGrid Grid.Row="2" Columns="5" Margin="0,6,0,0">
+            <ctl:SynthKnob Label="M1"     Minimum="0" Maximum="1" Value="{Binding Master.Macro1, Mode=TwoWay}" DefaultValue="0" ValueFormat="P0"/>
+            <ctl:SynthKnob Label="M2"     Minimum="0" Maximum="1" Value="{Binding Master.Macro2, Mode=TwoWay}" DefaultValue="0" ValueFormat="P0"/>
+            <ctl:SynthKnob Label="M3"     Minimum="0" Maximum="1" Value="{Binding Master.Macro3, Mode=TwoWay}" DefaultValue="0" ValueFormat="P0"/>
+            <ctl:SynthKnob Label="M4"     Minimum="0" Maximum="1" Value="{Binding Master.Macro4, Mode=TwoWay}" DefaultValue="0" ValueFormat="P0"/>
+            <ctl:SynthKnob Label="MASTER" Minimum="0" Maximum="1" Value="{Binding Master.MasterVolume, Mode=TwoWay}" DefaultValue="0.8" ValueFormat="P0"/>
+        </UniformGrid>
+    </Grid>
+    </ScrollViewer>
+</UserControl>

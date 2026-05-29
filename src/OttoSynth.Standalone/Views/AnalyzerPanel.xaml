@@ -1,0 +1,14 @@
+<UserControl x:Class="OttoSynth.Standalone.Views.AnalyzerPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:OttoSynth.UI.Controls;assembly=OttoSynth.UI">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <ctl:WaveformDisplay  Grid.Row="0" x:Name="WaveformViewInternal"/>
+        <ctl:SpectrumAnalyzer Grid.Row="1" x:Name="SpectrumViewInternal" Margin="0,4,0,0"/>
+    </Grid>
+</UserControl>

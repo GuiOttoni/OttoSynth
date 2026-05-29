@@ -108,6 +108,33 @@ public sealed class Eq3Band : EffectBase
         _highL.Reset(); _highR.Reset();
     }
 
+    public override IReadOnlyList<EffectParameter> GetParameters() =>
+    [
+        new("LowFreq",    "LO FREQ",  20,   500,  LowFreq,    "Hz"),
+        new("LowGainDb",  "LO GAIN",  -18,  18,   LowGainDb,  "dB", IsBipolar: true),
+        new("MidFreq",    "MID FREQ", 200,  8000, MidFreq,    "Hz"),
+        new("MidGainDb",  "MID GAIN", -18,  18,   MidGainDb,  "dB", IsBipolar: true),
+        new("MidQ",       "MID Q",    0.1,  4,    MidQ,       ""),
+        new("HighFreq",   "HI FREQ",  2000, 20000, HighFreq,  "Hz"),
+        new("HighGainDb", "HI GAIN",  -18,  18,   HighGainDb, "dB", IsBipolar: true),
+        new("Mix",        "MIX",      0,    1,    Mix,        ""),
+    ];
+
+    public override void SetParameter(string name, double value)
+    {
+        switch (name)
+        {
+            case "LowFreq":    LowFreq    = value; break;
+            case "LowGainDb":  LowGainDb  = value; break;
+            case "MidFreq":    MidFreq    = value; break;
+            case "MidGainDb":  MidGainDb  = value; break;
+            case "MidQ":       MidQ       = value; break;
+            case "HighFreq":   HighFreq   = value; break;
+            case "HighGainDb": HighGainDb = value; break;
+            case "Mix":        Mix        = value; break;
+        }
+    }
+
     /// <summary>
     /// Simple biquad filter (RBJ audio cookbook).
     /// </summary>

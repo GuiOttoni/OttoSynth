@@ -29,6 +29,16 @@ public sealed class PresetData
     public OscillatorData Osc2 { get; set; } = new();
     public OscillatorData Osc3 { get; set; } = new();
 
+    // ─── Oscillator Routing Matrix ──────────────────────────────
+    // 6 off-diagonal entries for a 3×3 matrix; index via RoutingIndex(mod, car).
+    // Ordering: (1,2)=0, (1,3)=1, (2,1)=2, (2,3)=3, (3,1)=4, (3,2)=5
+    public string[] OscRoutingModes  { get; set; } = new string[6] { "Mix","Mix","Mix","Mix","Mix","Mix" };
+    public double[] OscRoutingDepths { get; set; } = new double[6] { 0.5,  0.5,  0.5,  0.5,  0.5,  0.5 };
+
+    // Map (mod, car) both 1-indexed to flat array index [0..5].
+    public static int RoutingIndex(int mod, int car)
+        => (mod - 1) * 2 + (car < mod ? car - 1 : car - 2);
+
     // ─── Noise ──────────────────────────────────────────────────
     public NoiseData Noise { get; set; } = new();
 
@@ -54,8 +64,18 @@ public sealed class PresetData
     // ─── Macros ─────────────────────────────────────────────────
     public double[] Macros { get; set; } = new double[4];
 
+    // ─── MIDI CC → Macro assignments ────────────────────────────
+    // Index [0..3] = Macro 1..4. Value 255 = not mapped.
+    public int[] MacroCcNumbers { get; set; } = new int[4] { 255, 255, 255, 255 };
+
     // ─── Effects ────────────────────────────────────────────────
     public List<EffectData> Effects { get; set; } = new();
+
+    // ─── Arpeggiator ────────────────────────────────────────────
+    public ArpData Arp { get; set; } = new();
+
+    // ─── Sequencer ──────────────────────────────────────────────
+    public SequencerData Seq { get; set; } = new();
 }
 
 public sealed class OscillatorData
@@ -67,6 +87,8 @@ public sealed class OscillatorData
     public int CoarseTune { get; set; } = 0;
     public double FineTune { get; set; } = 0.0;
     public double WavetablePosition { get; set; } = 0.0;
+    public string WarpType { get; set; } = "None";
+    public double WarpAmount { get; set; } = 0.0;
     public int UnisonVoices { get; set; } = 1;
     public double UnisonDetune { get; set; } = 0.3;
     public double UnisonSpread { get; set; } = 0.5;
@@ -87,6 +109,8 @@ public sealed class FilterData
     public double Drive { get; set; } = 0.0;
     public bool Is24dB { get; set; } = false;
     public double KeyTracking { get; set; } = 0.0;
+    public double FormantVowel { get; set; } = 0.0;  // 0=A, 0.25=E, 0.5=I, 0.75=O, 1=U
+    public double FormantShift { get; set; } = 1.0;  // 0.5..2.0
 }
 
 public sealed class EnvelopeData
@@ -118,11 +142,39 @@ public sealed class ModRouteData
     public bool Active { get; set; } = true;
 }
 
+public sealed class ArpData
+{
+    public bool   Enabled     { get; set; } = false;
+    public string Pattern     { get; set; } = "Up";
+    public string Rate        { get; set; } = "Sixteenth";
+    public int    OctaveRange { get; set; } = 1;
+    public bool   Hold        { get; set; } = false;
+}
+
+public sealed class SequencerStepData
+{
+    public bool Active   { get; set; } = false;
+    public int  Note     { get; set; } = 60;
+    public int  Velocity { get; set; } = 100;
+    public bool Tied     { get; set; } = false;
+}
+
+public sealed class SequencerData
+{
+    public bool                   Enabled   { get; set; } = false;
+    public int                    StepCount { get; set; } = 16;
+    public string                 Rate      { get; set; } = "Sixteenth";
+    public int                    Bpm       { get; set; } = 120;
+    public List<SequencerStepData> Steps    { get; set; } = new();
+}
+
 public sealed class EffectData
 {
     public string Type { get; set; } = ""; // "Distortion", "Delay", "Reverb", etc.
     public bool Bypass { get; set; } = false;
     public double Mix { get; set; } = 1.0;
+    /// <summary>Channel routing: "Both", "Left", "Right".</summary>
+    public string Channel { get; set; } = "Both";
     /// <summary>Effect-specific parameters as a key/value dictionary.</summary>
     public Dictionary<string, double> Parameters { get; set; } = new();
     /// <summary>Effect-specific string parameters (e.g. Distortion type).</summary>

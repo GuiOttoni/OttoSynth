@@ -35,6 +35,9 @@ public sealed class StateVariableFilter
         // ── Comb
         CombPositive,  // IIR comb — adds resonant peaks
         CombNegative,  // FIR comb — creates notches
+
+        // ── Formant (vocal tract simulation)
+        Formant,       // 3 parallel BP filters morphing A→E→I→O→U
     }
 
     // ─── Public parameters ───────────────────────────────────────
@@ -62,6 +65,10 @@ public sealed class StateVariableFilter
     // ─── Moog Ladder ─────────────────────────────────────────────
 
     private readonly MoogLadderFilter _moog = new();
+
+    // ─── Formant ─────────────────────────────────────────────────
+
+    private readonly FormantFilter _formant = new();
 
     // ─── K35 state ───────────────────────────────────────────────
 
@@ -121,11 +128,25 @@ public sealed class StateVariableFilter
         set => _keyTracking = Math.Clamp(value, 0.0, 1.0);
     }
 
-    /// <summary>If true, SVF is cascaded for 24 dB/oct. No effect on Moog / Comb.</summary>
+    /// <summary>If true, SVF is cascaded for 24 dB/oct. No effect on Moog / Comb / Formant.</summary>
     public bool Is24dB
     {
         get => _is24dB;
         set => _is24dB = value;
+    }
+
+    /// <summary>Vowel position for Formant mode (0=A, 0.25=E, 0.5=I, 0.75=O, 1.0=U).</summary>
+    public double FormantVowel
+    {
+        get => _formant.Vowel;
+        set { _formant.Vowel = value; }
+    }
+
+    /// <summary>Formant frequency scale factor (0.5=small voice, 1.0=neutral, 2.0=deep voice).</summary>
+    public double FormantShift
+    {
+        get => _formant.FormantShift;
+        set { _formant.FormantShift = value; }
     }
 
     // ─── Constructor ─────────────────────────────────────────────
@@ -141,6 +162,7 @@ public sealed class StateVariableFilter
     {
         _sampleRate = sampleRate;
         _moog.SetSampleRate(sampleRate);
+        _formant.SetSampleRate(sampleRate);
         UpdateCoefficients();
     }
 
@@ -161,6 +183,7 @@ public sealed class StateVariableFilter
         // Do NOT clear the whole comb buffer on NoteOn — causes clicks.
         // It decays on its own via the feedback < 1.
         _moog.ResetState();
+        _formant.ResetState();
     }
 
     /// <summary>Clears everything including the comb delay buffer.</summary>
@@ -169,6 +192,27 @@ public sealed class StateVariableFilter
         ResetState();
         Array.Clear(_combBuf, 0, CombBufSize);
         _combWritePos = 0;
+    }
+
+    /// <summary>
+    /// Copies all parameters from <paramref name="src"/> into this instance without touching
+    /// internal filter state (ic1/ic2, K35 states, comb buffer).
+    /// Call once per audio block on a right-channel mirror instance to keep params in sync.
+    /// </summary>
+    public void SyncParamsFrom(StateVariableFilter src)
+    {
+        _mode          = src._mode;
+        _bypass        = src._bypass;
+        _is24dB        = src._is24dB;
+        _drive         = src._drive;
+        _keyTracking   = src._keyTracking;
+        _noteFrequency = src._noteFrequency;
+        _cutoff        = src._cutoff;
+        _baseCutoff    = src._baseCutoff;
+        _resonance     = src._resonance;
+        UpdateCoefficients();
+        _moog.SyncParamsFrom(src._moog);
+        _formant.SyncParamsFrom(src._formant);
     }
 
     /// <summary>Process a mono block in-place (or input → output).</summary>
@@ -212,6 +256,10 @@ public sealed class StateVariableFilter
 
             case FilterMode.CombNegative:
                 ProcessCombNegative(input, output, sampleCount, driveGain);
+                break;
+
+            case FilterMode.Formant:
+                _formant.Process(input, output, sampleCount);
                 break;
 
             default:

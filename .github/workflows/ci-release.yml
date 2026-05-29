@@ -1,0 +1,93 @@
+name: CI / Release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build, Test & Package
+    runs-on: windows-latest
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── .NET 10 ─────────────────────────────────────────────────
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      # ── Read version ─────────────────────────────────────────────
+      - name: Read version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Get-Content version.txt).Trim()
+          echo "version=$v" >> $env:GITHUB_OUTPUT
+          echo "Version: $v"
+
+      # ── Restore ──────────────────────────────────────────────────
+      - name: Restore
+        run: dotnet restore OttoSynth.slnx
+
+      # ── Tests ────────────────────────────────────────────────────
+      - name: Test
+        run: dotnet test tests/OttoSynth.Core.Tests --no-restore -c Release --logger "console;verbosity=minimal"
+
+      # ── Publish standalone (single-file self-contained) ──────────
+      - name: Publish Standalone
+        run: >
+          dotnet publish src/OttoSynth.Standalone/OttoSynth.Standalone.csproj
+          -p:PublishProfile=win-x64 -c Release --no-restore
+
+      # ── Build VST3 plugin ────────────────────────────────────────
+      - name: Build VST3 Plugin
+        run: dotnet build src/OttoSynth.Plugin/OttoSynth.Plugin.csproj -c Release --no-restore
+
+      # ── Inno Setup installer ─────────────────────────────────────
+      - name: Compile Installer
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          & $iscc installer\OttoSynth.iss "/DAppVersion=${{ steps.ver.outputs.version }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # ── Upload installer as build artifact ───────────────────────
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OttoSynth-${{ steps.ver.outputs.version }}-Setup
+          path: installer/Output/OttoSynth-*-Setup.exe
+          if-no-files-found: error
+
+      # ── Create GitHub Release (push to main only) ─────────────────
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}-build${{ github.run_number }}
+          name: OttoSynth ${{ steps.ver.outputs.version }} (build ${{ github.run_number }})
+          prerelease: ${{ contains(steps.ver.outputs.version, '-') }}
+          generate_release_notes: true
+          files: installer/Output/OttoSynth-*-Setup.exe
+          body: |
+            ## OttoSynth ${{ steps.ver.outputs.version }}
+
+            **Build:** ${{ github.run_number }} | **Commit:** ${{ github.sha }}
+
+            ### Instalação
+            1. Baixe `OttoSynth-*-Setup.exe` abaixo
+            2. Execute o instalador
+            3. Escolha entre **Standalone** e/ou **VST3**
+
+            ### Requisitos
+            - Windows 10/11 x64
+            - Nenhum runtime necessário (self-contained)

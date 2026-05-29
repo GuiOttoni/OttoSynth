@@ -46,6 +46,15 @@ public sealed class MoogLadderFilter
         ResetState();
     }
 
+    /// <summary>Copies parameters (not state) from another instance for stereo mirroring.</summary>
+    public void SyncParamsFrom(MoogLadderFilter src)
+    {
+        _cutoff    = src._cutoff;
+        _resonance = src._resonance;
+        _drive     = src._drive;
+        _sampleRate = src._sampleRate;
+    }
+
     public void ResetState()
     {
         _stage0 = _stage1 = _stage2 = _stage3 = 0;

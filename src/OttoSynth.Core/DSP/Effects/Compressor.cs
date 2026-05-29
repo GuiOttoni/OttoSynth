@@ -93,4 +93,29 @@ public sealed class Compressor : EffectBase
     {
         _grDb = 0.0;
     }
+
+    public override IReadOnlyList<EffectParameter> GetParameters() =>
+    [
+        new("ThresholdDb",  "THRESH",  -60,  0,   ThresholdDb,  "dB"),
+        new("Ratio",        "RATIO",   1,    20,  Ratio,        ":1"),
+        new("Attack",       "ATTACK",  0.001, 0.5, Attack,      "s"),
+        new("Release",      "RELEASE", 0.01, 3,   Release,      "s"),
+        new("KneeDb",       "KNEE",    0,    24,  KneeDb,       "dB"),
+        new("MakeupGainDb", "MAKEUP",  -12,  24,  MakeupGainDb, "dB"),
+        new("Mix",          "MIX",     0,    1,   Mix,          ""),
+    ];
+
+    public override void SetParameter(string name, double value)
+    {
+        switch (name)
+        {
+            case "ThresholdDb":  ThresholdDb  = value; break;
+            case "Ratio":        Ratio        = value; break;
+            case "Attack":       Attack       = value; break;
+            case "Release":      Release      = value; break;
+            case "KneeDb":       KneeDb       = value; break;
+            case "MakeupGainDb": MakeupGainDb = value; break;
+            case "Mix":          Mix          = value; break;
+        }
+    }
 }

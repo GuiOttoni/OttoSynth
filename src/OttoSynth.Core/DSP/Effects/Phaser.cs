@@ -94,4 +94,25 @@ public sealed class Phaser : EffectBase
         _fbL = 0;
         _fbR = 0;
     }
+
+    public override IReadOnlyList<EffectParameter> GetParameters() =>
+    [
+        new("Rate",     "RATE",   0.1, 5,         Rate,     "Hz"),
+        new("Depth",    "DEPTH",  0,   1,          Depth,    ""),
+        new("Feedback", "FDBK",   0,   0.9,        Feedback, ""),
+        new("Stages",   "STAGES", 2,   MaxStages,  Stages,   ""),
+        new("Mix",      "MIX",    0,   1,          Mix,      ""),
+    ];
+
+    public override void SetParameter(string name, double value)
+    {
+        switch (name)
+        {
+            case "Rate":     Rate     = value; break;
+            case "Depth":    Depth    = value; break;
+            case "Feedback": Feedback = value; break;
+            case "Stages":   Stages   = (int)Math.Round(value); break;
+            case "Mix":      Mix      = value; break;
+        }
+    }
 }

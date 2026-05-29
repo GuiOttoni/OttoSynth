@@ -1,0 +1,138 @@
+<UserControl x:Class="OttoSynth.Plugin.PluginEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:OttoSynth.UI.Controls;assembly=OttoSynth.UI"
+             xmlns:views="clr-namespace:OttoSynth.UI.Views;assembly=OttoSynth.UI"
+             Width="1280" Height="820"
+             Background="{DynamicResource BackgroundPrimaryBrush}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="28"/>
+        </Grid.RowDefinitions>
+
+        <!-- ═══ HEADER ═════════════════════════════════════════════ -->
+        <Border Grid.Row="0" Background="{DynamicResource BackgroundDeepBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+            <Grid Margin="16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Logo -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="&gt; OTTO" FontSize="22" FontWeight="Bold"
+                               Foreground="{DynamicResource AccentPrimaryBrush}" FontFamily="Cascadia Mono"/>
+                    <TextBlock Text="SYNTH_" FontSize="22" FontWeight="Bold"
+                               Foreground="{DynamicResource AccentAmberBrush}" FontFamily="Cascadia Mono" Margin="2,0,0,0"/>
+                    <TextBlock Text="v2.0" FontSize="10" Foreground="#555555"
+                               FontFamily="Consolas" Margin="10,6,0,0" VerticalAlignment="Bottom"/>
+                </StackPanel>
+
+                <!-- Preset selector -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="Preset:" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="Consolas" FontSize="11"
+                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox x:Name="PresetSelector" Width="180" Style="{DynamicResource SynthComboBoxStyle}"/>
+                    <Button x:Name="LoadPresetBtn" Content="Load" Style="{DynamicResource SynthButtonStyle}"
+                            Margin="4,0,0,0" Click="LoadPresetBtn_Click"/>
+                </StackPanel>
+
+                <!-- Master volume -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="VOL" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="Consolas" FontSize="10"
+                               VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ctl:SynthKnob x:Name="MasterVolumeKnob" Label="" Minimum="0" Maximum="1"
+                                   DefaultValue="0.8" ValueFormat="P0" Width="40" Height="40"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═══ MAIN CONTENT ════════════════════════════════════════ -->
+        <Grid Grid.Row="1" Margin="6,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="320"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" MinHeight="240"/>
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="180"/>
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="160"/>
+            </Grid.RowDefinitions>
+
+            <!-- Oscillators — spans full width top -->
+            <Border Grid.Row="0" Grid.Column="0" Style="{DynamicResource SynthPanelBorder}" Margin="0,0,3,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="// OSCILLATORS" Style="{DynamicResource HeaderTextStyle}" Margin="6,4,0,4"/>
+                    <views:OscillatorsPanel x:Name="OscillatorsPanelView" Margin="4"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Filter — left middle -->
+            <Border Grid.Row="2" Grid.Column="0" Style="{DynamicResource SynthPanelBorder}" Margin="0,0,3,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="// FILTER" Style="{DynamicResource HeaderTextStyle}" Margin="6,4,0,4"/>
+                    <views:FilterPanel x:Name="FilterPanelView" Margin="4"/>
+                </DockPanel>
+            </Border>
+
+            <!-- LFOs — left bottom -->
+            <Border Grid.Row="4" Grid.Column="0" Style="{DynamicResource SynthPanelBorder}" Margin="0,0,3,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="// LFOs" Style="{DynamicResource HeaderTextStyle}" Margin="6,4,0,4"/>
+                    <views:LfosPanel x:Name="LfosPanelView" Margin="4"/>
+                </DockPanel>
+            </Border>
+
+            <!-- GridSplitter columns -->
+            <GridSplitter Grid.Row="0" Grid.RowSpan="5" Grid.Column="1"
+                          Width="5" HorizontalAlignment="Stretch" Background="Transparent"/>
+
+            <!-- Envelopes — right top -->
+            <Border Grid.Row="0" Grid.Column="2" Style="{DynamicResource SynthPanelBorder}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="// ENVELOPES" Style="{DynamicResource HeaderTextStyle}" Margin="6,4,0,4"/>
+                    <views:EnvelopePanel x:Name="EnvelopePanelView" Margin="4"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Mod Matrix — right middle -->
+            <Border Grid.Row="2" Grid.Column="2" Style="{DynamicResource SynthPanelBorder}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="// MOD MATRIX" Style="{DynamicResource HeaderTextStyle}" Margin="6,4,0,4"/>
+                    <views:ModMatrixPanel x:Name="ModMatrixPanelView" Margin="4"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Master — right bottom -->
+            <Border Grid.Row="4" Grid.Column="2" Style="{DynamicResource SynthPanelBorder}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="// MASTER" Style="{DynamicResource HeaderTextStyle}" Margin="6,4,0,4"/>
+                    <views:MasterPanel x:Name="MasterPanelView" Margin="4"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Row splitters -->
+            <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                          Height="5" HorizontalAlignment="Stretch" Background="Transparent"/>
+            <GridSplitter Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3"
+                          Height="5" HorizontalAlignment="Stretch" Background="Transparent"/>
+        </Grid>
+
+        <!-- ═══ STATUS BAR ══════════════════════════════════════════ -->
+        <Border Grid.Row="2" Background="{DynamicResource BackgroundDeepBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+            <TextBlock x:Name="StatusText" Text="> AUDIO ENGINE ONLINE"
+                       Foreground="{DynamicResource AccentPrimaryBrush}"
+                       FontFamily="Consolas" FontSize="10"
+                       VerticalAlignment="Center" Margin="12,0"/>
+        </Border>
+    </Grid>
+</UserControl>

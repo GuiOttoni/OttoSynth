@@ -1,5 +1,8 @@
 namespace OttoSynth.Core.DSP.Effects;
 
+/// <summary>Which channels the effect processes and affects.</summary>
+public enum ChannelRoute { Both, Left, Right }
+
 /// <summary>
 /// Base interface for all audio effects.
 /// Effects process stereo audio buffers in place.

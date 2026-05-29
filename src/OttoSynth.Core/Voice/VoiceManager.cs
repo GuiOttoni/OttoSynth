@@ -1,6 +1,7 @@
 using System;
 using OttoSynth.Core.DSP.Filters;
 using OttoSynth.Core.DSP.Modulation;
+using OttoSynth.Core.DSP.Oscillators;
 
 namespace OttoSynth.Core.Voice;
 
@@ -101,6 +102,26 @@ public sealed class VoiceManager
         }
     }
 
+    /// <summary>Sets the free envelope (ENV3) parameters across all voices.</summary>
+    public void SetFreeEnvelopeParameters(double attack, double decay, double sustain, double release)
+    {
+        for (int i = 0; i < _maxVoices; i++)
+        {
+            var env = _voices[i].EnvFree;
+            env.AttackTime = attack;
+            env.DecayTime = decay;
+            env.SustainLevel = sustain;
+            env.ReleaseTime = release;
+        }
+    }
+
+    /// <summary>Sets unison configuration for a specific oscillator (1-3) across all voices.</summary>
+    public void SetOscillatorUnison(int oscIndex, int voiceCount, double detuneCents, double spread)
+    {
+        for (int i = 0; i < _maxVoices; i++)
+            _voices[i].SetUnison(oscIndex, voiceCount, detuneCents, spread);
+    }
+
     /// <summary>Sets filter parameters for a specific filter (1 or 2) across all voices.</summary>
     public void SetFilterParameters(int filterIndex, StateVariableFilter.FilterMode mode,
         double cutoff, double resonance, double drive = 0.0, bool is24dB = false)
@@ -121,6 +142,17 @@ public sealed class VoiceManager
                 voice.SetFilter1Base(cutoff, resonance, drive);
             else
                 voice.SetFilter2Base(cutoff, resonance, drive);
+        }
+    }
+
+    /// <summary>Sets formant filter parameters for filter 1 or 2 across all voices.</summary>
+    public void SetFormantParameters(int filterIndex, double vowel, double shift)
+    {
+        for (int i = 0; i < _maxVoices; i++)
+        {
+            var filter = filterIndex == 1 ? _voices[i].Filter1 : _voices[i].Filter2;
+            filter.FormantVowel = vowel;
+            filter.FormantShift = shift;
         }
     }
 
@@ -159,6 +191,25 @@ public sealed class VoiceManager
         }
     }
 
+    /// <summary>
+    /// Sets oscillator tuning/position/warp/pan on the active source across all voices.
+    /// Routes to the active source (single oscillator or unison engine) so parameters
+    /// reach sub-oscillators even when unison is enabled.
+    /// </summary>
+    public void SetOscillatorParams(int oscIndex, int coarseTune, double fineTune,
+        double position, double warpAmount, double pan)
+    {
+        for (int i = 0; i < _maxVoices; i++)
+            _voices[i].SetOscillatorTuning(oscIndex, coarseTune, fineTune, position, warpAmount, pan);
+    }
+
+    /// <summary>Sets the warp mode on the active oscillator source across all voices.</summary>
+    public void SetOscillatorWarp(int oscIndex, WavetableOscillator.WaveWarp warp)
+    {
+        for (int i = 0; i < _maxVoices; i++)
+            _voices[i].SetOscillatorWarpMode(oscIndex, warp);
+    }
+
     /// <summary>Sets portamento parameters across all voices.</summary>
     public void SetPortamento(double glideTime, SynthVoice.GlideMode mode)
     {
@@ -168,6 +219,21 @@ public sealed class VoiceManager
             _voices[i].Glide = mode;
         }
     }
+
+    /// <summary>Sets the routing from modulator to carrier (both 1-indexed) across all voices.</summary>
+    public void SetOscillatorRouting(int modulator, int carrier, SynthVoice.OscRouting routing, double depth)
+    {
+        for (int i = 0; i < _maxVoices; i++)
+            _voices[i].SetOscillatorRouting(modulator, carrier, routing, depth);
+    }
+
+    /// <summary>Returns the routing mode for a modulator→carrier pair (1-indexed) from voice 0.</summary>
+    public SynthVoice.OscRouting GetOscillatorRouting(int modulator, int carrier)
+        => _voices[0].GetOscRouting(modulator, carrier);
+
+    /// <summary>Returns the FM depth for a modulator→carrier pair (1-indexed) from voice 0.</summary>
+    public double GetOscillatorFmDepth(int modulator, int carrier)
+        => _voices[0].GetOscFmDepth(modulator, carrier);
 
     /// <summary>Sets the filter routing mode across all voices.</summary>
     public void SetFilterRouting(SynthVoice.FilterRouting routing)

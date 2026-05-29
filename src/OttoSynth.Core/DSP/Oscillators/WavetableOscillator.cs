@@ -12,7 +12,7 @@ namespace OttoSynth.Core.DSP.Oscillators;
 /// Includes per-oscillator "Warp" modes (Serum/Vital-inspired) that distort
 /// the phase or amplitude as the wavetable is read.
 /// </summary>
-public sealed class WavetableOscillator
+public sealed class WavetableOscillator : IOscillatorSource
 {
     /// <summary>
     /// Per-oscillator warp modes. They re-shape how the wavetable is read,
@@ -57,7 +57,9 @@ public sealed class WavetableOscillator
     // Warp (Serum/Vital-style per-oscillator effect)
     private WaveWarp _warp;
     private double _warpAmount; // 0..1
-    private double _fmPhase; // Internal phase for FM warp
+    private double _fmPhase;   // Internal phase for FM warp
+    // Previous pre-warp sample — used for 2x oversampling of Drive/Fold nonlinearities
+    private double _prevRawSample;
 
     // Cached values
     private double _sampleRate;
@@ -176,81 +178,175 @@ public sealed class WavetableOscillator
     }
 
     /// <summary>
-    /// Resets the phase accumulator (called on NoteOn with phase reset).
+    /// Generates one block of audio with exponential FM applied.
+    /// If <paramref name="rawMono"/> is non-null, post-warp pre-level samples accumulate into it.
     /// </summary>
-    public void ResetPhase()
+    public void ProcessWithFM(double[] outputLeft, double[] outputRight, double[]? rawMono,
+                               double[] fmBuf, double fmDepth, int sampleCount)
     {
-        _phase = 0.0;
-    }
+        if (_wavetable == null || _level <= 0.0001) return;
 
-    /// <summary>
-    /// Processes a block of audio samples into the output buffer.
-    /// This is the main audio generation method — zero allocation.
-    /// </summary>
-    /// <param name="outputLeft">Left channel output buffer.</param>
-    /// <param name="outputRight">Right channel output buffer.</param>
-    /// <param name="sampleCount">Number of samples to generate.</param>
-    public void Process(double[] outputLeft, double[] outputRight, int sampleCount)
-    {
-        if (_wavetable == null || _level <= 0.0001)
-        {
-            return; // Silent — don't process
-        }
+        double level        = _level;
+        double panL         = _panLeft;
+        double panR         = _panRight;
+        double phase        = _phase;
+        double basePhaseInc = _phaseIncrement;
+        int tableSize       = _tableSize;
+        int tableMask       = tableSize - 1;
+        WaveWarp warp       = _warp;
+        double warpAmt      = _warpAmount;
+        bool warpActive     = warp != WaveWarp.None && warpAmt > 0.0001;
+        bool captureRaw     = rawMono != null;
+        bool doFm           = fmDepth > 0.0001;
+        // Math.Exp(x*Ln2) == Math.Pow(2,x) but ~30% faster on .NET
+        double fmScale      = fmDepth * 4.0 * MathUtils.Ln2;
 
-        double level = _level;
-        double panL = _panLeft;
-        double panR = _panRight;
-        double phase = _phase;
-        double phaseInc = _phaseIncrement;
-        int tableSize = _tableSize;
-        int tableMask = tableSize - 1; // Assumes power-of-2 table size
-        WaveWarp warp = _warp;
-        double warpAmt = _warpAmount;
-        bool warpActive = warp != WaveWarp.None && warpAmt > 0.0001;
-
-        // Select the appropriate wavetable frame/mipmap level
-        double[] table = SelectTable();
-
-        // FM warp uses a modulator running 7× faster than the carrier
-        double fmInc = phaseInc * 7.0;
+        // Frame selection is loop-invariant — compute once before the sample loop.
+        var (frameA, frameB, frameBlend) = SelectFrames();
+        bool doBlend = frameBlend > 0.0001;
+        double fmInc = basePhaseInc * 7.0;
+        bool needsOversampledWarpFM = warpActive && (warp == WaveWarp.Drive || warp == WaveWarp.Fold);
+        double prevRawFM = _prevRawSample;
 
         for (int i = 0; i < sampleCount; i++)
         {
-            // Apply phase warp (modify the read position based on warp mode)
+            double phaseInc = doFm
+                ? basePhaseInc * Math.Exp(fmBuf[i] * fmScale)
+                : basePhaseInc;
+
             double warpedPhase = phase;
             if (warpActive)
                 warpedPhase = ApplyPhaseWarp(phase, warp, warpAmt, ref _fmPhase, fmInc);
 
-            // Read wavetable with Hermite interpolation
             double readIndex = warpedPhase * tableSize;
             int idx0 = (int)readIndex;
             double frac = readIndex - idx0;
-
-            // Four points for Hermite interpolation (with wrapping)
             int idxM1 = (idx0 - 1) & tableMask;
-            int idx1 = (idx0 + 1) & tableMask;
-            int idx2 = (idx0 + 2) & tableMask;
+            int idx1  = (idx0 + 1) & tableMask;
+            int idx2  = (idx0 + 2) & tableMask;
             idx0 &= tableMask;
 
             double sample = MathUtils.HermiteInterpolation(
-                table[idxM1], table[idx0], table[idx1], table[idx2], frac);
+                frameA[idxM1], frameA[idx0], frameA[idx1], frameA[idx2], frac);
 
-            // Apply amplitude warp (after wavetable read)
-            if (warpActive)
+            if (doBlend)
+            {
+                double sB = MathUtils.HermiteInterpolation(
+                    frameB[idxM1], frameB[idx0], frameB[idx1], frameB[idx2], frac);
+                sample += (sB - sample) * frameBlend;
+            }
+
+            double rawSampleFM = sample;
+            if (needsOversampledWarpFM)
+            {
+                double mid = (prevRawFM + rawSampleFM) * 0.5;
+                sample = (ApplyAmpWarp(mid, warp, warpAmt) + ApplyAmpWarp(rawSampleFM, warp, warpAmt)) * 0.5;
+            }
+            else if (warpActive)
+            {
                 sample = ApplyAmpWarp(sample, warp, warpAmt);
+            }
+            prevRawFM = rawSampleFM;
 
-            // Apply level and panning
+            if (captureRaw) rawMono![i] += sample; // post-warp, pre-level/pan
+
             sample *= level;
-            outputLeft[i] += sample * panL;
+            outputLeft[i]  += sample * panL;
             outputRight[i] += sample * panR;
 
-            // Advance phase
             phase += phaseInc;
-            if (phase >= 1.0)
-                phase -= 1.0;
+            if (phase >= 1.0) phase -= 1.0;
+            if (phase < 0.0)  phase += 1.0;
         }
-
         _phase = phase;
+        _prevRawSample = prevRawFM;
+    }
+
+    /// <summary>Called on NoteOn — resets phase to zero for a clean attack.</summary>
+    public void NoteOn() => ResetPhase();
+
+    /// <summary>Resets the phase accumulator to zero.</summary>
+    public void ResetPhase()
+    {
+        _phase = 0.0;
+        _prevRawSample = 0.0;
+    }
+
+    /// <summary>
+    /// Generates one block of audio samples — zero allocation.
+    /// If <paramref name="rawMono"/> is non-null, post-warp pre-level samples accumulate into it.
+    /// </summary>
+    public void Process(double[] outputLeft, double[] outputRight, double[]? rawMono, int sampleCount)
+    {
+        if (_wavetable == null || _level <= 0.0001) return;
+
+        double level    = _level;
+        double panL     = _panLeft;
+        double panR     = _panRight;
+        double phase    = _phase;
+        double phaseInc = _phaseIncrement;
+        int tableSize   = _tableSize;
+        int tableMask   = tableSize - 1;
+        WaveWarp warp   = _warp;
+        double warpAmt  = _warpAmount;
+        bool warpActive = warp != WaveWarp.None && warpAmt > 0.0001;
+        bool captureRaw = rawMono != null;
+
+        // Frame selection is loop-invariant — compute once before the sample loop.
+        var (frameA, frameB, frameBlend) = SelectFrames();
+        bool doBlend = frameBlend > 0.0001;
+        double fmInc = phaseInc * 7.0;
+        bool needsOversampledWarp = warpActive && (warp == WaveWarp.Drive || warp == WaveWarp.Fold);
+        double prevRaw = _prevRawSample;
+
+        for (int i = 0; i < sampleCount; i++)
+        {
+            double warpedPhase = phase;
+            if (warpActive)
+                warpedPhase = ApplyPhaseWarp(phase, warp, warpAmt, ref _fmPhase, fmInc);
+
+            double readIndex = warpedPhase * tableSize;
+            int idx0 = (int)readIndex;
+            double frac = readIndex - idx0;
+            int idxM1 = (idx0 - 1) & tableMask;
+            int idx1  = (idx0 + 1) & tableMask;
+            int idx2  = (idx0 + 2) & tableMask;
+            idx0 &= tableMask;
+
+            double sample = MathUtils.HermiteInterpolation(
+                frameA[idxM1], frameA[idx0], frameA[idx1], frameA[idx2], frac);
+
+            if (doBlend)
+            {
+                double sB = MathUtils.HermiteInterpolation(
+                    frameB[idxM1], frameB[idx0], frameB[idx1], frameB[idx2], frac);
+                sample += (sB - sample) * frameBlend;
+            }
+
+            double rawSample = sample; // capture pre-warp value before modifying sample
+            if (needsOversampledWarp)
+            {
+                // 2× inline oversampling for Drive/Fold: midpoint + current, then average
+                double mid = (prevRaw + rawSample) * 0.5;
+                sample = (ApplyAmpWarp(mid, warp, warpAmt) + ApplyAmpWarp(rawSample, warp, warpAmt)) * 0.5;
+            }
+            else if (warpActive)
+            {
+                sample = ApplyAmpWarp(sample, warp, warpAmt);
+            }
+            prevRaw = rawSample;
+
+            if (captureRaw) rawMono![i] += sample; // post-warp, pre-level/pan
+
+            sample *= level;
+            outputLeft[i]  += sample * panL;
+            outputRight[i] += sample * panR;
+
+            phase += phaseInc;
+            if (phase >= 1.0) phase -= 1.0;
+        }
+        _phase = phase;
+        _prevRawSample = prevRaw;
     }
 
     /// <summary>
@@ -340,32 +436,32 @@ public sealed class WavetableOscillator
     }
 
     /// <summary>
-    /// Selects the appropriate wavetable based on frequency (mipmap) or position (morphing).
+    /// Selects the frame(s) to read based on mode:
+    /// - Mipmap: single frame chosen by frequency (anti-aliasing); blend == 0.
+    /// - Single-frame: trivially returns the only frame; blend == 0.
+    /// - Multi-frame: returns two adjacent frames + linear blend factor derived from
+    ///   <see cref="_wavetablePosition"/>, enabling smooth wavetable morphing.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private double[] SelectTable()
+    private (double[] frameA, double[] frameB, double blend) SelectFrames()
     {
         if (_hasMipmap)
         {
-            // Mipmap: select based on frequency
             double actualFreq = _frequency * MathUtils.SemitonesToFrequencyRatio(
                 _coarseTune + _fineTune / 100.0);
-            int level = BasicWavetables.GetMipmapLevel(actualFreq);
-            level = Math.Clamp(level, 0, _frameCount - 1);
-            return _wavetable[level];
+            int level = Math.Clamp(BasicWavetables.GetMipmapLevel(actualFreq), 0, _frameCount - 1);
+            return (_wavetable[level], _wavetable[level], 0.0);
         }
-        else if (_frameCount == 1)
-        {
-            return _wavetable[0];
-        }
-        else
-        {
-            // Multi-frame: morph based on wavetable position
-            // For now, return nearest frame. Phase 2 will add interpolation between frames.
-            int frameIndex = (int)(_wavetablePosition * (_frameCount - 1));
-            frameIndex = Math.Clamp(frameIndex, 0, _frameCount - 1);
-            return _wavetable[frameIndex];
-        }
+
+        if (_frameCount == 1)
+            return (_wavetable[0], _wavetable[0], 0.0);
+
+        // Multi-frame morphing: linear blend between adjacent frames.
+        // Computed once per buffer (loop-invariant); cost is two Hermite reads per sample
+        // only when blend is non-trivial — a worthwhile trade for smooth morphing.
+        double framePos = _wavetablePosition * (_frameCount - 1);
+        int idxA = Math.Clamp((int)framePos, 0, _frameCount - 2);
+        return (_wavetable[idxA], _wavetable[idxA + 1], framePos - idxA);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

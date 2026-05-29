@@ -42,7 +42,7 @@ public sealed class MidiService : IDisposable
 
         _midiIn = new MidiIn(deviceIndex);
         _midiIn.MessageReceived += OnMessageReceived;
-        _midiIn.ErrorReceived += (_, _) => { };
+        _midiIn.ErrorReceived += (_, e) => Logger.Warn("MidiService", $"MIDI error on device {deviceIndex}: {e.MidiEvent}");
         _midiIn.Start();
         ActiveDeviceIndex = deviceIndex;
         Logger.Info("MidiService", $"Connected to: {MidiIn.DeviceInfo(deviceIndex).ProductName}");

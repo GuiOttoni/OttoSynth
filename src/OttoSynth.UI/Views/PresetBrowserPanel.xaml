@@ -1,0 +1,182 @@
+<UserControl x:Class="OttoSynth.UI.Views.PresetBrowserPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:OttoSynth.UI.ViewModels"
+             xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase">
+
+    <UserControl.Resources>
+
+        <!-- Groups FilteredPresets by Category — always active -->
+        <CollectionViewSource x:Key="GroupedPresets" Source="{Binding FilteredPresets}">
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="Category"/>
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
+
+        <!-- Category toggle button -->
+        <Style x:Key="CategoryButtonStyle" TargetType="ToggleButton">
+            <Setter Property="FontFamily" Value="{DynamicResource FontFamilyMono}"/>
+            <Setter Property="FontSize"   Value="10"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="Margin"  Value="2,0"/>
+            <Setter Property="Cursor"  Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="#000000"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource AccentPrimaryBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Preset list item -->
+        <DataTemplate x:Key="PresetItemTemplate" DataType="{x:Type vm:PresetEntryViewModel}">
+            <Grid Margin="2,1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="18"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <!-- Favorite star -->
+                <TextBlock Grid.Column="0"
+                           Text="{Binding IsFavorite, Converter={StaticResource BoolToStarConverter}}"
+                           FontSize="11" VerticalAlignment="Center"
+                           Foreground="{DynamicResource AccentAmberBrush}"
+                           Cursor="Hand"
+                           MouseLeftButtonDown="Star_MouseLeftButtonDown"/>
+                <!-- Preset name -->
+                <TextBlock Grid.Column="1" Text="{Binding Name}"
+                           FontFamily="{DynamicResource FontFamilyMono}" FontSize="11"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           VerticalAlignment="Center" Margin="2,0"/>
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <DockPanel>
+        <!-- Search box -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,4"
+                Background="{DynamicResource BackgroundDeepBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="2">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="/" FontFamily="Consolas" FontSize="11"
+                           Foreground="{DynamicResource AccentPrimaryBrush}"
+                           VerticalAlignment="Center" Margin="6,0,2,0"/>
+                <TextBox Grid.Column="1" x:Name="SearchBox"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         FontFamily="{DynamicResource FontFamilyMono}" FontSize="11"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         Background="Transparent" BorderThickness="0"
+                         VerticalAlignment="Center" Padding="2,4"
+                         CaretBrush="{DynamicResource AccentPrimaryBrush}">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox">
+                            <Style.Triggers>
+                                <Trigger Property="Text" Value="">
+                                    <Setter Property="Background">
+                                        <Setter.Value>
+                                            <VisualBrush Stretch="None" AlignmentX="Left">
+                                                <VisualBrush.Visual>
+                                                    <TextBlock Text="search presets..."
+                                                               FontFamily="Consolas" FontSize="11"
+                                                               Foreground="{DynamicResource TextTertiaryBrush}"
+                                                               Margin="2,4"/>
+                                                </VisualBrush.Visual>
+                                            </VisualBrush>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+            </Grid>
+        </Border>
+
+        <!-- Category strip -->
+        <ScrollViewer DockPanel.Dock="Top" HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Disabled" Margin="0,0,0,4">
+            <StackPanel x:Name="CategoryStrip" Orientation="Horizontal"/>
+        </ScrollViewer>
+
+        <!-- Load button -->
+        <Button DockPanel.Dock="Bottom"
+                Content="LOAD PRESET"
+                Command="{Binding LoadSelectedCommand}"
+                Style="{DynamicResource SynthButtonStyle}"
+                Margin="0,4,0,0" Height="26"/>
+
+        <!-- Preset list — ItemsSource points at the CollectionViewSource (groups by Category) -->
+        <ListBox x:Name="PresetList"
+                 MouseDoubleClick="PresetList_MouseDoubleClick"
+                 ItemsSource="{Binding Source={StaticResource GroupedPresets}}"
+                 SelectedItem="{Binding SelectedPreset, Mode=TwoWay}"
+                 ItemTemplate="{StaticResource PresetItemTemplate}"
+                 Background="Transparent"
+                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 VirtualizingPanel.IsVirtualizing="False">
+            <ListBox.GroupStyle>
+                <GroupStyle>
+                    <GroupStyle.ContainerStyle>
+                        <Style TargetType="GroupItem">
+                            <Setter Property="Margin" Value="0"/>
+                        </Style>
+                    </GroupStyle.ContainerStyle>
+                    <GroupStyle.HeaderTemplate>
+                        <DataTemplate>
+                            <Border Padding="6,3,4,2" Margin="0,6,0,2"
+                                    BorderBrush="{DynamicResource AccentSecondaryBrush}"
+                                    BorderThickness="0,0,0,1">
+                                <TextBlock Text="{Binding Name}"
+                                           FontFamily="{DynamicResource FontFamilyMono}"
+                                           FontSize="9" FontWeight="Bold"
+                                           Foreground="{DynamicResource AccentSecondaryBrush}"/>
+                            </Border>
+                        </DataTemplate>
+                    </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+            </ListBox.GroupStyle>
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Padding" Value="4,2"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#1A00FF41"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource AccentPrimaryBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#0D00FF41"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ListBox.ItemContainerStyle>
+        </ListBox>
+    </DockPanel>
+</UserControl>

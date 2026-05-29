@@ -1,0 +1,72 @@
+<UserControl x:Class="OttoSynth.UI.Views.LfosPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:OttoSynth.UI.Controls">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- LFO 1 -->
+        <Grid Grid.Column="0" Margin="0,0,4,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="LFO 1" Style="{DynamicResource HeaderTextStyle}" FontSize="11" Margin="2,0,0,2"/>
+            <ComboBox Grid.Row="1" Margin="2,0,2,2" Style="{DynamicResource SynthComboBoxStyle}"
+                      ItemsSource="{Binding Lfo1.ShapeLabels}"
+                      SelectedItem="{Binding Lfo1.SelectedShape, Mode=TwoWay}"/>
+            <ctl:LfoDisplay Grid.Row="2" x:Name="Lfo1View" Height="32" Margin="2,2"/>
+            <UniformGrid Grid.Row="3" Columns="2">
+                <ctl:SynthKnob Label="RATE"  Minimum="0.01" Maximum="30" Value="{Binding Lfo1.Rate, Mode=TwoWay}"  DefaultValue="1" ValueFormat="F2" Unit=" Hz"/>
+                <ctl:SynthKnob Label="DEPTH" Minimum="0"    Maximum="1"  Value="{Binding Lfo1.Depth, Mode=TwoWay}" DefaultValue="1" ValueFormat="P0"/>
+            </UniformGrid>
+        </Grid>
+
+        <!-- LFO 2 -->
+        <Grid Grid.Column="1" Margin="2,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="LFO 2" Style="{DynamicResource HeaderTextStyle}" FontSize="11" Margin="2,0,0,2"/>
+            <ComboBox Grid.Row="1" Margin="2,0,2,2" Style="{DynamicResource SynthComboBoxStyle}"
+                      ItemsSource="{Binding Lfo2.ShapeLabels}"
+                      SelectedItem="{Binding Lfo2.SelectedShape, Mode=TwoWay}"/>
+            <ctl:LfoDisplay Grid.Row="2" x:Name="Lfo2View" Height="32" Margin="2,2"/>
+            <UniformGrid Grid.Row="3" Columns="2">
+                <ctl:SynthKnob Label="RATE"  Minimum="0.01" Maximum="30" Value="{Binding Lfo2.Rate, Mode=TwoWay}"  DefaultValue="1" ValueFormat="F2" Unit=" Hz"/>
+                <ctl:SynthKnob Label="DEPTH" Minimum="0"    Maximum="1"  Value="{Binding Lfo2.Depth, Mode=TwoWay}" DefaultValue="1" ValueFormat="P0"/>
+            </UniformGrid>
+        </Grid>
+
+        <!-- LFO 3 -->
+        <Grid Grid.Column="2" Margin="4,0,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="LFO 3" Style="{DynamicResource HeaderTextStyle}" FontSize="11" Margin="2,0,0,2"/>
+            <ComboBox Grid.Row="1" Margin="2,0,2,2" Style="{DynamicResource SynthComboBoxStyle}"
+                      ItemsSource="{Binding Lfo3.ShapeLabels}"
+                      SelectedItem="{Binding Lfo3.SelectedShape, Mode=TwoWay}"/>
+            <ctl:LfoDisplay Grid.Row="2" x:Name="Lfo3View" Height="32" Margin="2,2"/>
+            <UniformGrid Grid.Row="3" Columns="2">
+                <ctl:SynthKnob Label="RATE"  Minimum="0.01" Maximum="30" Value="{Binding Lfo3.Rate, Mode=TwoWay}"  DefaultValue="1" ValueFormat="F2" Unit=" Hz"/>
+                <ctl:SynthKnob Label="DEPTH" Minimum="0"    Maximum="1"  Value="{Binding Lfo3.Depth, Mode=TwoWay}" DefaultValue="1" ValueFormat="P0"/>
+            </UniformGrid>
+        </Grid>
+    </Grid>
+    </ScrollViewer>
+</UserControl>

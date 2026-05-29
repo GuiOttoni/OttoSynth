@@ -99,4 +99,23 @@ public sealed class Distortion : EffectBase
     }
 
     public override void Reset() { /* stateless */ }
+
+    public override IReadOnlyList<EffectParameter> GetParameters() =>
+    [
+        new("Drive",      "DRIVE",    0, 1,  Drive,      ""),
+        new("OutputGain", "OUT GAIN", 0, 1,  OutputGain, ""),
+        new("BitDepth",   "BIT DPTH", 1, 16, BitDepth,   "bit"),
+        new("Mix",        "MIX",      0, 1,  Mix,        ""),
+    ];
+
+    public override void SetParameter(string name, double value)
+    {
+        switch (name)
+        {
+            case "Drive":      Drive      = value; break;
+            case "OutputGain": OutputGain = value; break;
+            case "BitDepth":   BitDepth   = value; break;
+            case "Mix":        Mix        = value; break;
+        }
+    }
 }

@@ -110,4 +110,23 @@ public sealed class Chorus : EffectBase
         _phase2 = 0;
         _phase3 = 0;
     }
+
+    public override IReadOnlyList<EffectParameter> GetParameters() =>
+    [
+        new("Rate",     "RATE",  0.1, 5,   Rate,     "Hz"),
+        new("Depth",    "DEPTH", 0,   1,   Depth,    ""),
+        new("Feedback", "FDBK",  0,   0.9, Feedback, ""),
+        new("Mix",      "MIX",   0,   1,   Mix,      ""),
+    ];
+
+    public override void SetParameter(string name, double value)
+    {
+        switch (name)
+        {
+            case "Rate":     Rate     = value; break;
+            case "Depth":    Depth    = value; break;
+            case "Feedback": Feedback = value; break;
+            case "Mix":      Mix      = value; break;
+        }
+    }
 }

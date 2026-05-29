@@ -1,0 +1,80 @@
+<UserControl x:Class="OttoSynth.UI.Views.FilterPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:OttoSynth.UI.Controls">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,4">
+            <TextBlock Text="ROUTE" Style="{DynamicResource LabelTextStyle}"
+                       Foreground="{DynamicResource AccentPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            <ComboBox MinWidth="80" Style="{DynamicResource SynthComboBoxStyle}"
+                      ToolTip="Filter routing"
+                      ItemsSource="{Binding FilterRoutingLabels}"
+                      SelectedItem="{Binding FilterRoutingLabel, Mode=TwoWay}"/>
+        </StackPanel>
+
+        <!-- Filter 1 -->
+        <TextBlock Grid.Row="1" Text="F1" Style="{DynamicResource LabelTextStyle}"
+                   Foreground="{DynamicResource AccentPrimaryBrush}" Margin="0,0,0,2"/>
+        <Grid Grid.Row="2" Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                <ComboBox MinWidth="90" Style="{DynamicResource SynthComboBoxStyle}"
+                          ItemsSource="{Binding FilterModeLabels}"
+                          SelectedItem="{Binding Filter1ModeLabel, Mode=TwoWay}" Margin="0,2"/>
+                <CheckBox Content="24 dB/oct" Margin="0,2"
+                          IsChecked="{Binding Filter1Is24dB, Mode=TwoWay}"/>
+            </StackPanel>
+            <UniformGrid Grid.Column="1" Columns="4">
+                <ctl:SynthKnob Label="CUTOFF"  Minimum="20"  Maximum="20000" Value="{Binding Filter1Cutoff, Mode=TwoWay}"    DefaultValue="20000" ValueFormat="F0" Unit=" Hz"/>
+                <ctl:SynthKnob Label="RES"     Minimum="0"   Maximum="1"     Value="{Binding Filter1Resonance, Mode=TwoWay}" DefaultValue="0"     ValueFormat="P0"/>
+                <ctl:SynthKnob Label="DRIVE"   Minimum="0"   Maximum="1"     Value="{Binding Filter1Drive, Mode=TwoWay}"     DefaultValue="0"     ValueFormat="P0"/>
+                <ctl:SynthKnob Label="ENV AMT" Minimum="-1"  Maximum="1"     Value="{Binding FilterEnvAmount, Mode=TwoWay}"  DefaultValue="0"     IsBipolar="True" ValueFormat="F2"/>
+            </UniformGrid>
+            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0">
+                <ctl:SynthKnob Label="GLIDE" Minimum="0" Maximum="2" Value="{Binding GlideTime, Mode=TwoWay}"
+                               DefaultValue="0" ValueFormat="F2" Unit="s" ToolTip="Portamento glide time"/>
+                <ComboBox MinWidth="70" Style="{DynamicResource SynthComboBoxStyle}"
+                          ToolTip="Glide mode" Margin="0,4,0,0"
+                          ItemsSource="{Binding GlideModeLabels}"
+                          SelectedItem="{Binding GlideModeLabel, Mode=TwoWay}"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Filter 2 -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                <TextBlock Text="F2" Style="{DynamicResource LabelTextStyle}"
+                           Foreground="{DynamicResource AccentPrimaryBrush}" Margin="0,0,0,2"/>
+                <ComboBox MinWidth="90" Style="{DynamicResource SynthComboBoxStyle}"
+                          ItemsSource="{Binding FilterModeLabels}"
+                          SelectedItem="{Binding Filter2ModeLabel, Mode=TwoWay}" Margin="0,2"/>
+                <CheckBox Content="24 dB/oct" Margin="0,2"
+                          IsChecked="{Binding Filter2Is24dB, Mode=TwoWay}"/>
+            </StackPanel>
+            <UniformGrid Grid.Column="1" Columns="3">
+                <ctl:SynthKnob Label="CUTOFF" Minimum="20"  Maximum="20000" Value="{Binding Filter2Cutoff, Mode=TwoWay}"    DefaultValue="20000" ValueFormat="F0" Unit=" Hz"/>
+                <ctl:SynthKnob Label="RES"    Minimum="0"   Maximum="1"     Value="{Binding Filter2Resonance, Mode=TwoWay}" DefaultValue="0"     ValueFormat="P0"/>
+                <ctl:SynthKnob Label="DRIVE"  Minimum="0"   Maximum="1"     Value="{Binding Filter2Drive, Mode=TwoWay}"     DefaultValue="0"     ValueFormat="P0"/>
+            </UniformGrid>
+        </Grid>
+    </Grid>
+    </ScrollViewer>
+</UserControl>

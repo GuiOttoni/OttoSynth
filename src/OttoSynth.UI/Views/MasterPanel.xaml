@@ -1,0 +1,133 @@
+<UserControl x:Class="OttoSynth.UI.Views.MasterPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:OttoSynth.UI.Controls">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="4">
+
+        <!-- Master Volume -->
+        <Grid Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="40"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="36"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="VOL" Style="{DynamicResource LabelTextStyle}" VerticalAlignment="Center"/>
+            <ctl:SynthSlider Grid.Column="1" Minimum="0" Maximum="1" DefaultValue="0.8"
+                             Value="{Binding MasterVolume, Mode=TwoWay}"
+                             VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2"
+                       Text="{Binding MasterVolume, StringFormat=P0}"
+                       Style="{DynamicResource LabelTextStyle}"
+                       VerticalAlignment="Center" HorizontalAlignment="Right"/>
+        </Grid>
+
+        <!-- Macros -->
+        <TextBlock Text="MACROS" Style="{DynamicResource LabelTextStyle}" Margin="0,0,0,4"/>
+        <UniformGrid Columns="4">
+            <ctl:SynthKnob Label="M1" Minimum="0" Maximum="1" Value="{Binding Macro1, Mode=TwoWay}" DefaultValue="0" ValueFormat="P0"/>
+            <ctl:SynthKnob Label="M2" Minimum="0" Maximum="1" Value="{Binding Macro2, Mode=TwoWay}" DefaultValue="0" ValueFormat="P0"/>
+            <ctl:SynthKnob Label="M3" Minimum="0" Maximum="1" Value="{Binding Macro3, Mode=TwoWay}" DefaultValue="0" ValueFormat="P0"/>
+            <ctl:SynthKnob Label="M4" Minimum="0" Maximum="1" Value="{Binding Macro4, Mode=TwoWay}" DefaultValue="0" ValueFormat="P0"/>
+        </UniformGrid>
+
+        <!-- MIDI CC assignments -->
+        <TextBlock Text="MIDI CC" Style="{DynamicResource LabelTextStyle}" Margin="0,8,0,3"/>
+        <UniformGrid Columns="4">
+            <StackPanel Margin="2,0">
+                <TextBlock Text="{Binding Macro1Cc}" HorizontalAlignment="Center"
+                           Style="{DynamicResource LabelTextStyle}"
+                           Foreground="{DynamicResource AccentSecondaryBrush}" Margin="0,0,0,2"
+                           ToolTip="Right-click to unmap">
+                    <TextBlock.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Unmap CC" Click="OnUnmap1Click"/>
+                        </ContextMenu>
+                    </TextBlock.ContextMenu>
+                </TextBlock>
+                <Button Content="{Binding Macro1LearnText}" Click="OnLearn1Click" Padding="2,2">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SynthButtonStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Macro1Learning}" Value="True">
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+            <StackPanel Margin="2,0">
+                <TextBlock Text="{Binding Macro2Cc}" HorizontalAlignment="Center"
+                           Style="{DynamicResource LabelTextStyle}"
+                           Foreground="{DynamicResource AccentSecondaryBrush}" Margin="0,0,0,2"
+                           ToolTip="Right-click to unmap">
+                    <TextBlock.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Unmap CC" Click="OnUnmap2Click"/>
+                        </ContextMenu>
+                    </TextBlock.ContextMenu>
+                </TextBlock>
+                <Button Content="{Binding Macro2LearnText}" Click="OnLearn2Click" Padding="2,2">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SynthButtonStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Macro2Learning}" Value="True">
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+            <StackPanel Margin="2,0">
+                <TextBlock Text="{Binding Macro3Cc}" HorizontalAlignment="Center"
+                           Style="{DynamicResource LabelTextStyle}"
+                           Foreground="{DynamicResource AccentSecondaryBrush}" Margin="0,0,0,2"
+                           ToolTip="Right-click to unmap">
+                    <TextBlock.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Unmap CC" Click="OnUnmap3Click"/>
+                        </ContextMenu>
+                    </TextBlock.ContextMenu>
+                </TextBlock>
+                <Button Content="{Binding Macro3LearnText}" Click="OnLearn3Click" Padding="2,2">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SynthButtonStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Macro3Learning}" Value="True">
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+            <StackPanel Margin="2,0">
+                <TextBlock Text="{Binding Macro4Cc}" HorizontalAlignment="Center"
+                           Style="{DynamicResource LabelTextStyle}"
+                           Foreground="{DynamicResource AccentSecondaryBrush}" Margin="0,0,0,2"
+                           ToolTip="Right-click to unmap">
+                    <TextBlock.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Unmap CC" Click="OnUnmap4Click"/>
+                        </ContextMenu>
+                    </TextBlock.ContextMenu>
+                </TextBlock>
+                <Button Content="{Binding Macro4LearnText}" Click="OnLearn4Click" Padding="2,2">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SynthButtonStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Macro4Learning}" Value="True">
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentPrimaryBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+        </UniformGrid>
+    </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -25,7 +25,7 @@ public class WavetableOscillatorTests
         var right = new double[BufferSize];
 
         // Act
-        osc.Process(left, right, BufferSize);
+        osc.Process(left, right, null, BufferSize);
 
         // Assert — all samples should be within [-1, 1]
         for (int i = 0; i < BufferSize; i++)
@@ -53,7 +53,7 @@ public class WavetableOscillatorTests
         var right = new double[samplesToGenerate];
 
         // Act
-        osc.Process(left, right, samplesToGenerate);
+        osc.Process(left, right, null, samplesToGenerate);
 
         // Assert — count zero crossings to estimate frequency
         int zeroCrossings = 0;
@@ -81,7 +81,7 @@ public class WavetableOscillatorTests
         var right = new double[BufferSize];
 
         // Act
-        osc.Process(left, right, BufferSize);
+        osc.Process(left, right, null, BufferSize);
 
         // Assert
         for (int i = 0; i < BufferSize; i++)
@@ -106,7 +106,7 @@ public class WavetableOscillatorTests
         var right = new double[BufferSize];
 
         // Act
-        osc.Process(left, right, BufferSize);
+        osc.Process(left, right, null, BufferSize);
 
         // Assert — left channel should have energy, right should be near-silent
         double leftEnergy = 0, rightEnergy = 0;
@@ -133,7 +133,7 @@ public class WavetableOscillatorTests
         var right = new double[BufferSize];
 
         // Act
-        osc.Process(left, right, BufferSize);
+        osc.Process(left, right, null, BufferSize);
 
         // Assert — saw wave should have signal (non-zero RMS)
         double rms = 0;
@@ -172,8 +172,8 @@ public class WavetableOscillatorTests
         var rightTuned = new double[samples];
 
         // Act
-        oscBase.Process(leftBase, rightBase, samples);
-        oscTuned.Process(leftTuned, rightTuned, samples);
+        oscBase.Process(leftBase, rightBase, null, samples);
+        oscTuned.Process(leftTuned, rightTuned, null, samples);
 
         // Count zero crossings for both
         int crossingsBase = CountZeroCrossings(leftBase, samples);

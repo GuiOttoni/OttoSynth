@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using OttoSynth.Core.Diagnostics;
+using OttoSynth.Core.DSP;
 using OttoSynth.Core.DSP.Effects;
 using OttoSynth.Core.DSP.Filters;
 using OttoSynth.Core.DSP.Modulation;
@@ -18,14 +19,12 @@ namespace OttoSynth.Core;
 public sealed class SynthEngine
 {
     private readonly VoiceManager _voiceManager;
-    private readonly AudioBuffer _outputBuffer;
     private readonly MacroControls _macros;
     private readonly EffectsChain _effectsChain;
     private readonly DcBlocker _dcBlocker;
 
     // Global parameters
     private double _masterVolume;
-    private double _pitchBendSemitones;
     private double _pitchBendRange;
     private double _modWheelValue;
     private double _glideTime;
@@ -33,12 +32,60 @@ public sealed class SynthEngine
 
     // Engine state
     private double _sampleRate;
-    private int _bufferSize;
-    private bool _isInitialized;
+    private int    _bufferSize;
+    private long   _samplePosition;
+
+    // Tempo
+    public int Bpm { get; set; } = 120;
+
+    // Arpeggiator and step sequencer
+    public ArpeggiatorEngine Arpeggiator { get; } = new();
+    public SequencerEngine   Sequencer   { get; } = new();
+
+    // ─── MIDI CC → Macro mapping ────────────────────────────────
+    // Each macro (0-3) can be assigned to a MIDI CC number.
+    // Value 255 means "not mapped". Written only on MIDI/UI thread; read on audio thread.
+    private readonly byte[] _macroCcNumbers = new byte[4] { 255, 255, 255, 255 };
+    private volatile int _learningMacroIndex = -1; // -1 = not learning
+    private Action<int, byte>? _onCcLearned;       // (macroIndex, ccNumber) — called on MIDI thread
+
+    /// <summary>True while waiting for the next incoming CC to assign to a macro.</summary>
+    public bool IsLearningCc => _learningMacroIndex >= 0;
+
+    /// <summary>
+    /// Puts the engine into CC-learn mode for the given macro (0-3).
+    /// The next incoming CC event will be permanently assigned to that macro.
+    /// <paramref name="onLearned"/> is invoked on the MIDI thread when assignment completes.
+    /// </summary>
+    public void LearnMacroCc(int macroIndex, Action<int, byte>? onLearned = null)
+    {
+        if (macroIndex < 0 || macroIndex > 3) return;
+        _learningMacroIndex = macroIndex;
+        _onCcLearned        = onLearned;
+    }
+
+    /// <summary>Cancels any active CC-learn operation.</summary>
+    public void CancelLearn()
+    {
+        _learningMacroIndex = -1;
+        _onCcLearned        = null;
+    }
+
+    /// <summary>Manually assigns a CC number (0-127) to a macro (0-3). 255 = unmap.</summary>
+    public void MapMacroCc(int macroIndex, byte ccNumber)
+    {
+        if (macroIndex < 0 || macroIndex > 3) return;
+        _macroCcNumbers[macroIndex] = ccNumber;
+    }
+
+    /// <summary>Returns the CC number assigned to a macro (0-3), or 255 if not mapped.</summary>
+    public byte GetMacroCcNumber(int macroIndex)
+        => (macroIndex >= 0 && macroIndex <= 3) ? _macroCcNumbers[macroIndex] : (byte)255;
 
     // Wavetable storage
     private readonly Dictionary<string, double[][]> _wavetables;
     private string _currentWavetableName;
+    private readonly string[] _oscWavetableNames = ["Saw", "Sine", "Triangle"];
 
     /// <summary>The voice manager for this engine.</summary>
     public VoiceManager VoiceManager => _voiceManager;
@@ -72,8 +119,12 @@ public sealed class SynthEngine
     /// <summary>Current mod wheel value (0..1).</summary>
     public double ModWheelValue => _modWheelValue;
 
-    /// <summary>Name of the currently loaded wavetable.</summary>
+    /// <summary>Name of the wavetable loaded in OSC1 (legacy compat).</summary>
     public string CurrentWavetableName => _currentWavetableName;
+
+    /// <summary>Returns the wavetable name for a specific oscillator (1-indexed).</summary>
+    public string GetOscWavetableName(int oscIndex) =>
+        (oscIndex >= 1 && oscIndex <= 3) ? _oscWavetableNames[oscIndex - 1] : "Saw";
 
     /// <summary>Available wavetable names.</summary>
     public IReadOnlyCollection<string> WavetableNames => _wavetables.Keys;
@@ -87,18 +138,15 @@ public sealed class SynthEngine
     public SynthEngine(int maxVoices = 16, int maxBufferSize = 1024)
     {
         _voiceManager = new VoiceManager(maxVoices, maxBufferSize);
-        _outputBuffer = new AudioBuffer(maxBufferSize);
         _macros = new MacroControls();
         _effectsChain = new EffectsChain();
         _dcBlocker = new DcBlocker();
 
         _masterVolume = 0.8;
         _pitchBendRange = 2.0;
-        _pitchBendSemitones = 0.0;
         _modWheelValue = 0.0;
         _sampleRate = 44100.0;
         _bufferSize = 256;
-        _isInitialized = false;
 
         // Share macros with all voices
         _voiceManager.SetMacros(_macros);
@@ -127,7 +175,6 @@ public sealed class SynthEngine
         LoadDefaultWavetables();
         SelectWavetable(_currentWavetableName);
 
-        _isInitialized = true;
     }
 
     /// <summary>
@@ -152,8 +199,41 @@ public sealed class SynthEngine
         {
             bool hasMipmap = name != "Sine";
             _voiceManager.SetWavetable(oscIndex, wavetable, hasMipmap);
+            if (oscIndex >= 1 && oscIndex <= 3)
+                _oscWavetableNames[oscIndex - 1] = name;
         }
     }
+
+    /// <summary>
+    /// Loads a wavetable from a WAV file and assigns it to an oscillator (1-3).
+    /// The wavetable name defaults to the file name without extension.
+    /// Returns the name used (can be passed back to <see cref="SelectWavetable"/>).
+    /// Throws <see cref="InvalidDataException"/> if the file is invalid.
+    /// </summary>
+    public string LoadWavetableFromFile(string filePath, int oscIndex)
+    {
+        var frames = WavetableLoader.Load(filePath);
+        string name = Path.GetFileNameWithoutExtension(filePath);
+
+        // Avoid name collisions with built-in wavetables by appending a counter
+        string uniqueName = name;
+        int suffix = 1;
+        while (_wavetables.ContainsKey(uniqueName) && !IsUserWavetable(uniqueName))
+            uniqueName = $"{name} ({++suffix})";
+
+        _wavetables[uniqueName] = frames;
+        _voiceManager.SetWavetable(oscIndex, frames, hasMipmap: false);
+        if (oscIndex >= 1 && oscIndex <= 3)
+            _oscWavetableNames[oscIndex - 1] = uniqueName;
+        return uniqueName;
+    }
+
+    private static readonly System.Collections.Generic.HashSet<string> _builtinNames =
+        new(["Saw","Sine","Square","Triangle","Pulse25","Pulse10","SoftSaw","BrightSaw",
+             "OddHarmonics","EvenHarmonics","HarmonicSeries","Organ","Violin","Bell",
+             "HalfSine","Staircase","WarmPad","Spectral"]);
+
+    private static bool IsUserWavetable(string name) => !_builtinNames.Contains(name);
 
     /// <summary>
     /// Sets the amplitude envelope parameters for all voices.
@@ -186,6 +266,12 @@ public sealed class SynthEngine
             Logger.Error("SynthEngine.SetFilter", ex,
                 $"filter={filterIndex} mode={mode} cutoff={cutoff:F1} res={resonance:F2}");
         }
+    }
+
+    /// <summary>Sets formant filter parameters for Filter 1 or 2.</summary>
+    public void SetFormantParams(int filterIndex, double vowel, double shift)
+    {
+        _voiceManager.SetFormantParameters(filterIndex, vowel, shift);
     }
 
     /// <summary>
@@ -233,6 +319,35 @@ public sealed class SynthEngine
         _voiceManager.SetOscillatorMix(oscIndex, level, enabled);
     }
 
+    /// <summary>Sets per-voice oscillator parameters (tune, position, warp, pan) for all voices.</summary>
+    public void SetOscillatorParams(int oscIndex, int coarseTune, double fineTune,
+        double position, double warpAmount, double pan)
+        => _voiceManager.SetOscillatorParams(oscIndex, coarseTune, fineTune, position, warpAmount, pan);
+
+    /// <summary>Sets the unison configuration for a specific oscillator (1-3).</summary>
+    public void SetOscillatorUnison(int oscIndex, int voiceCount, double detuneCents, double spread)
+        => _voiceManager.SetOscillatorUnison(oscIndex, voiceCount, detuneCents, spread);
+
+    /// <summary>Sets the free envelope (ENV3) parameters across all voices.</summary>
+    public void SetFreeEnvelope(double attack, double decay, double sustain, double release)
+        => _voiceManager.SetFreeEnvelopeParameters(attack, decay, sustain, release);
+
+    /// <summary>Sets the warp type for a specific oscillator across all voices.</summary>
+    public void SetOscillatorWarp(int oscIndex, WavetableOscillator.WaveWarp warp)
+        => _voiceManager.SetOscillatorWarp(oscIndex, warp);
+
+    /// <summary>Sets the routing from modulator to carrier (both 1-indexed, 1-3).</summary>
+    public void SetOscillatorRouting(int modulator, int carrier, SynthVoice.OscRouting routing, double depth)
+        => _voiceManager.SetOscillatorRouting(modulator, carrier, routing, depth);
+
+    /// <summary>Returns the routing mode for a modulator→carrier pair (1-indexed).</summary>
+    public SynthVoice.OscRouting GetOscillatorRouting(int modulator, int carrier)
+        => _voiceManager.GetOscillatorRouting(modulator, carrier);
+
+    /// <summary>Returns the FM depth for a modulator→carrier pair (1-indexed).</summary>
+    public double GetOscillatorFmDepth(int modulator, int carrier)
+        => _voiceManager.GetOscillatorFmDepth(modulator, carrier);
+
     // ─── Modulation Matrix API ──────────────────────────────────
 
     /// <summary>Adds a modulation route (Source → Destination with amount).</summary>
@@ -278,24 +393,25 @@ public sealed class SynthEngine
                     if (midiEvent.Data2 == 0)
                     {
                         // Some controllers send NoteOn with velocity 0 as NoteOff
-                        _voiceManager.NoteOff(midiEvent.Data1);
+                        if (Arpeggiator.Enabled) Arpeggiator.NoteOff(midiEvent.Data1);
+                        else _voiceManager.NoteOff(midiEvent.Data1);
                         Logger.Trace("MIDI", $"NoteOff (vel0) note={midiEvent.Data1}");
                     }
                     else
                     {
-                        _voiceManager.NoteOn(midiEvent.Data1, midiEvent.Data2);
+                        if (Arpeggiator.Enabled) Arpeggiator.NoteOn(midiEvent.Data1);
+                        else _voiceManager.NoteOn(midiEvent.Data1, midiEvent.Data2);
                         Logger.Trace("MIDI", $"NoteOn  note={midiEvent.Data1} vel={midiEvent.Data2}");
                     }
                     break;
 
                 case MidiEvent.EventType.NoteOff:
-                    _voiceManager.NoteOff(midiEvent.Data1);
+                    if (Arpeggiator.Enabled) Arpeggiator.NoteOff(midiEvent.Data1);
+                    else _voiceManager.NoteOff(midiEvent.Data1);
                     Logger.Trace("MIDI", $"NoteOff note={midiEvent.Data1}");
                     break;
 
                 case MidiEvent.EventType.PitchBend:
-                    _pitchBendSemitones = MathUtils.PitchBendToSemitones(
-                        midiEvent.PitchBendValue, _pitchBendRange);
                     _voiceManager.SetPitchBend(midiEvent.PitchBendValue / 8192.0);
                     break;
 
@@ -337,6 +453,15 @@ public sealed class SynthEngine
             // Clear output
             Array.Clear(outputLeft, 0, sampleCount);
             Array.Clear(outputRight, 0, sampleCount);
+
+            // Tick arpeggiator and sequencer (generate NoteOn/NoteOff into VoiceManager)
+            Arpeggiator.Tick(_samplePosition, sampleCount, (int)_sampleRate, Bpm,
+                (n, v) => _voiceManager.NoteOn(n, v),
+                n       => _voiceManager.NoteOff(n));
+            Sequencer.Tick(_samplePosition, sampleCount, (int)_sampleRate, Bpm,
+                (n, v) => _voiceManager.NoteOn(n, v),
+                n       => _voiceManager.NoteOff(n));
+            _samplePosition += sampleCount;
 
             // Process all active voices (they mix into the output)
             _voiceManager.Process(outputLeft, outputRight, sampleCount);
@@ -402,22 +527,58 @@ public sealed class SynthEngine
     public void Reset()
     {
         _voiceManager.Reset();
-        _pitchBendSemitones = 0.0;
         _modWheelValue = 0.0;
     }
 
     private void LoadDefaultWavetables()
     {
-        _wavetables["Sine"] = BasicWavetables.GenerateSine();
-        _wavetables["Saw"] = BasicWavetables.GenerateSaw(sampleRate: _sampleRate);
-        _wavetables["Square"] = BasicWavetables.GenerateSquare(sampleRate: _sampleRate);
-        _wavetables["Triangle"] = BasicWavetables.GenerateTriangle(sampleRate: _sampleRate);
+        double sr = _sampleRate;
+        _wavetables["Sine"]          = BasicWavetables.GenerateSine();
+        _wavetables["Saw"]           = BasicWavetables.GenerateSaw(sampleRate: sr);
+        _wavetables["Square"]        = BasicWavetables.GenerateSquare(sampleRate: sr);
+        _wavetables["Triangle"]      = BasicWavetables.GenerateTriangle(sampleRate: sr);
+        _wavetables["Pulse 25%"]     = BasicWavetables.GeneratePulse25(sampleRate: sr);
+        _wavetables["Pulse 10%"]     = BasicWavetables.GeneratePulse10(sampleRate: sr);
+        _wavetables["Soft Saw"]      = BasicWavetables.GenerateSoftSaw(sampleRate: sr);
+        _wavetables["Bright Saw"]    = BasicWavetables.GenerateBrightSaw(sampleRate: sr);
+        _wavetables["Odd Harmonics"] = BasicWavetables.GenerateOddHarmonics(sampleRate: sr);
+        _wavetables["Even Harmonics"]= BasicWavetables.GenerateEvenHarmonics(sampleRate: sr);
+        _wavetables["Harmonic Series"]= BasicWavetables.GenerateHarmonicSeries(sampleRate: sr);
+        _wavetables["Organ"]         = BasicWavetables.GenerateOrgan(sampleRate: sr);
+        _wavetables["Violin"]        = BasicWavetables.GenerateViolin(sampleRate: sr);
+        _wavetables["Bell"]          = BasicWavetables.GenerateBell(sampleRate: sr);
+        _wavetables["Half Sine"]     = BasicWavetables.GenerateHalfSine(sampleRate: sr);
+        _wavetables["Staircase"]     = BasicWavetables.GenerateStaircase(sampleRate: sr);
+        _wavetables["Warm Pad"]      = BasicWavetables.GenerateWarmPad(sampleRate: sr);
+        _wavetables["Spectral"]      = BasicWavetables.GenerateSpectral(sampleRate: sr);
     }
 
     private void HandleControlChange(byte ccNumber, byte value)
     {
+        // ── MIDI Learn: capture next incoming CC for macro assignment ──────────
+        int learningIdx = _learningMacroIndex;
+        if (learningIdx >= 0)
+        {
+            _macroCcNumbers[learningIdx] = ccNumber;
+            _learningMacroIndex = -1;
+            var cb = _onCcLearned;
+            _onCcLearned = null;
+            cb?.Invoke(learningIdx, ccNumber); // fires on MIDI thread; caller marshals to UI
+        }
+
+        // ── CC → Macro routing (user-assigned) ────────────────────────────────
+        double normalized = value / 127.0;
+        for (int i = 0; i < 4; i++)
+            if (_macroCcNumbers[i] == ccNumber)
+                _macros[i] = normalized;
+
+        // ── Standard / hardwired CCs ──────────────────────────────────────────
         switch (ccNumber)
         {
+            case 1:  // Mod Wheel (also handled via MidiEvent.ModWheel — guard for raw CC path)
+                _modWheelValue = normalized;
+                _voiceManager.SetModWheel(normalized);
+                break;
             case 64: // Sustain Pedal
                 SetSustainPedal(value >= 64);
                 break;

@@ -13,6 +13,7 @@ public sealed class EffectsChain
 {
     private readonly List<IEffect> _effects = new();
     private double _sampleRate = 44100.0;
+    private readonly double[] _savedChannel = new double[4096];
 
     /// <summary>Number of effects currently in the chain.</summary>
     public int Count => _effects.Count;
@@ -72,10 +73,32 @@ public sealed class EffectsChain
             fx.Reset();
     }
 
-    /// <summary>Processes audio through all effects in order.</summary>
+    /// <summary>Processes audio through all effects in order, respecting per-effect channel routing.</summary>
     public void Process(double[] left, double[] right, int sampleCount)
     {
+        int clamp = Math.Min(sampleCount, _savedChannel.Length);
         for (int i = 0; i < _effects.Count; i++)
-            _effects[i].Process(left, right, sampleCount);
+        {
+            var fx = _effects[i];
+            var route = (fx as EffectBase)?.Channel ?? ChannelRoute.Both;
+            switch (route)
+            {
+                case ChannelRoute.Left:
+                    Array.Copy(right, _savedChannel, clamp);
+                    Array.Clear(right, 0, clamp);
+                    fx.Process(left, right, clamp);
+                    Array.Copy(_savedChannel, right, clamp);
+                    break;
+                case ChannelRoute.Right:
+                    Array.Copy(left, _savedChannel, clamp);
+                    Array.Clear(left, 0, clamp);
+                    fx.Process(left, right, clamp);
+                    Array.Copy(_savedChannel, left, clamp);
+                    break;
+                default:
+                    fx.Process(left, right, sampleCount);
+                    break;
+            }
+        }
     }
 }

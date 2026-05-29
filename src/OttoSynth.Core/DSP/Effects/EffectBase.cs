@@ -1,6 +1,17 @@
 using System;
+using System.Collections.Generic;
 
 namespace OttoSynth.Core.DSP.Effects;
+
+/// <summary>Describes one editable parameter of an effect.</summary>
+public sealed record EffectParameter(
+    string Name,
+    string Label,
+    double Min,
+    double Max,
+    double Value,
+    string Unit = "",
+    bool IsBipolar = false);
 
 /// <summary>
 /// Common base implementation for effects.
@@ -20,6 +31,9 @@ public abstract class EffectBase : IEffect
 
     public abstract string Name { get; }
     public bool Bypass { get; set; }
+
+    /// <summary>Which stereo channel(s) this effect processes.</summary>
+    public ChannelRoute Channel { get; set; } = ChannelRoute.Both;
 
     public double Mix
     {
@@ -79,4 +93,10 @@ public abstract class EffectBase : IEffect
     protected abstract void ProcessInternal(double[] left, double[] right, int sampleCount);
 
     public abstract void Reset();
+
+    /// <summary>Returns descriptors for all editable parameters (current values).</summary>
+    public virtual IReadOnlyList<EffectParameter> GetParameters() => [];
+
+    /// <summary>Sets a parameter by name. Ignored if name is not recognized.</summary>
+    public virtual void SetParameter(string name, double value) { }
 }

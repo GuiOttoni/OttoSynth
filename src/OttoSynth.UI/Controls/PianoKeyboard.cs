@@ -9,20 +9,51 @@ namespace OttoSynth.UI.Controls;
 /// <summary>
 /// On-screen piano keyboard. Renders white and black keys, supports mouse clicks
 /// (with sliding when dragged), and fires NoteOn / NoteOff events.
+/// Colors are driven by DependencyProperties so each theme can style them.
 /// </summary>
 public class PianoKeyboard : Control
 {
+    private static readonly PropertyChangedCallback Redraw =
+        (d, _) => ((PianoKeyboard)d).InvalidateVisual();
+
+    // ── Range ──────────────────────────────────────────────────────
     public static readonly DependencyProperty StartNoteProperty = DependencyProperty.Register(
-        nameof(StartNote), typeof(int), typeof(PianoKeyboard),
-        new PropertyMetadata(48, (d, _) => ((PianoKeyboard)d).RefreshKeys()));
+        nameof(StartNote), typeof(int), typeof(PianoKeyboard), new PropertyMetadata(48, Redraw));
 
     public static readonly DependencyProperty EndNoteProperty = DependencyProperty.Register(
-        nameof(EndNote), typeof(int), typeof(PianoKeyboard),
-        new PropertyMetadata(84, (d, _) => ((PianoKeyboard)d).RefreshKeys()));
+        nameof(EndNote), typeof(int), typeof(PianoKeyboard), new PropertyMetadata(84, Redraw));
 
     public int StartNote { get => (int)GetValue(StartNoteProperty); set => SetValue(StartNoteProperty, value); }
-    public int EndNote { get => (int)GetValue(EndNoteProperty); set => SetValue(EndNoteProperty, value); }
+    public int EndNote   { get => (int)GetValue(EndNoteProperty);   set => SetValue(EndNoteProperty,   value); }
 
+    // ── Key colours ────────────────────────────────────────────────
+    public static readonly DependencyProperty KeyWhiteBrushProperty = DependencyProperty.Register(
+        nameof(KeyWhiteBrush), typeof(Brush), typeof(PianoKeyboard),
+        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0xB0, 0xFF, 0xB0)), Redraw));
+
+    public static readonly DependencyProperty KeyWhiteActiveBrushProperty = DependencyProperty.Register(
+        nameof(KeyWhiteActiveBrush), typeof(Brush), typeof(PianoKeyboard),
+        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0x00, 0xFF, 0x41)), Redraw));
+
+    public static readonly DependencyProperty KeyBlackBrushProperty = DependencyProperty.Register(
+        nameof(KeyBlackBrush), typeof(Brush), typeof(PianoKeyboard),
+        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0x07, 0x1A, 0x0E)), Redraw));
+
+    public static readonly DependencyProperty KeyBlackActiveBrushProperty = DependencyProperty.Register(
+        nameof(KeyBlackActiveBrush), typeof(Brush), typeof(PianoKeyboard),
+        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0xFF, 0xB0, 0x00)), Redraw));
+
+    public static readonly DependencyProperty KeyBorderBrushProperty = DependencyProperty.Register(
+        nameof(KeyBorderBrush), typeof(Brush), typeof(PianoKeyboard),
+        new PropertyMetadata(new SolidColorBrush(Color.FromRgb(0x1A, 0x4D, 0x23)), Redraw));
+
+    public Brush KeyWhiteBrush       { get => (Brush)GetValue(KeyWhiteBrushProperty);       set => SetValue(KeyWhiteBrushProperty,       value); }
+    public Brush KeyWhiteActiveBrush { get => (Brush)GetValue(KeyWhiteActiveBrushProperty); set => SetValue(KeyWhiteActiveBrushProperty, value); }
+    public Brush KeyBlackBrush       { get => (Brush)GetValue(KeyBlackBrushProperty);       set => SetValue(KeyBlackBrushProperty,       value); }
+    public Brush KeyBlackActiveBrush { get => (Brush)GetValue(KeyBlackActiveBrushProperty); set => SetValue(KeyBlackActiveBrushProperty, value); }
+    public Brush KeyBorderBrush      { get => (Brush)GetValue(KeyBorderBrushProperty);      set => SetValue(KeyBorderBrushProperty,      value); }
+
+    // ── Events ─────────────────────────────────────────────────────
     public event EventHandler<int>? NoteOn;
     public event EventHandler<int>? NoteOff;
 
@@ -31,11 +62,8 @@ public class PianoKeyboard : Control
 
     public PianoKeyboard()
     {
-        Background = new SolidColorBrush(Color.FromRgb(0x01, 0x04, 0x02));
         Focusable = true;
     }
-
-    private void RefreshKeys() => InvalidateVisual();
 
     /// <summary>Highlights a key as currently held down. Does not fire NoteOn.</summary>
     public void SetNoteActive(int note, bool active)
@@ -71,7 +99,7 @@ public class PianoKeyboard : Control
         double blackW = whiteW * 0.6;
         double blackH = h * 0.6;
 
-        // First check black keys (drawn on top)
+        // Check black keys first (drawn on top)
         int whiteIndex = 0;
         for (int n = StartNote; n < EndNote; n++)
         {
@@ -86,7 +114,7 @@ public class PianoKeyboard : Control
             }
         }
 
-        // Otherwise it's a white key
+        // Fall back to white key
         int wi = (int)(p.X / whiteW);
         whiteIndex = 0;
         for (int n = StartNote; n < EndNote; n++)
@@ -109,32 +137,31 @@ public class PianoKeyboard : Control
         int whiteCount = CountWhiteKeys();
         if (whiteCount == 0) return;
 
+        // Fill background
+        if (Background != null)
+            dc.DrawRectangle(Background, null, new Rect(0, 0, w, h));
+
         double whiteW = w / whiteCount;
         double blackW = whiteW * 0.6;
         double blackH = h * 0.6;
 
-        // Draw white keys (Matrix-style: dim phosphor instead of white)
-        var whiteBrush = new SolidColorBrush(Color.FromRgb(0xB0, 0xFF, 0xB0));
-        var whiteActiveBrush = new SolidColorBrush(Color.FromRgb(0x00, 0xFF, 0x41));
-        var keyBorderPen = new Pen(new SolidColorBrush(Color.FromRgb(0x1A, 0x4D, 0x23)), 1);
+        var keyPen   = new Pen(KeyBorderBrush,  1);
+        var blackPen = new Pen(Brushes.Black,   1);
 
+        // White keys
         int whiteIndex = 0;
         for (int n = StartNote; n < EndNote; n++)
         {
             if (!IsBlackKey(n))
             {
-                Brush b = _activeNotes[n] ? whiteActiveBrush : whiteBrush;
+                Brush b = _activeNotes[n] ? KeyWhiteActiveBrush : KeyWhiteBrush;
                 var rect = new Rect(whiteIndex * whiteW + 1, 2, whiteW - 2, h - 4);
-                dc.DrawRoundedRectangle(b, keyBorderPen, rect, 3, 3);
+                dc.DrawRoundedRectangle(b, keyPen, rect, 3, 3);
                 whiteIndex++;
             }
         }
 
-        // Draw black keys on top (matrix dark)
-        var blackBrush = new SolidColorBrush(Color.FromRgb(0x07, 0x1A, 0x0E));
-        var blackActiveBrush = new SolidColorBrush(Color.FromRgb(0xFF, 0xB0, 0x00));
-        var blackBorderPen = new Pen(new SolidColorBrush(Color.FromRgb(0x00, 0x00, 0x00)), 1);
-
+        // Black keys on top
         whiteIndex = 0;
         for (int n = StartNote; n < EndNote; n++)
         {
@@ -144,10 +171,10 @@ public class PianoKeyboard : Control
             }
             else
             {
-                Brush b = _activeNotes[n] ? blackActiveBrush : blackBrush;
+                Brush b = _activeNotes[n] ? KeyBlackActiveBrush : KeyBlackBrush;
                 double xPos = (whiteIndex - 1) * whiteW + whiteW - blackW / 2.0;
                 var rect = new Rect(xPos, 2, blackW, blackH);
-                dc.DrawRoundedRectangle(b, blackBorderPen, rect, 2, 2);
+                dc.DrawRoundedRectangle(b, blackPen, rect, 2, 2);
             }
         }
     }
