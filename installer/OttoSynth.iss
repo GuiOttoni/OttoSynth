@@ -18,8 +18,9 @@
 #define AppExe        "OttoSynth.exe"
 #define StandaloneDir  "..\artifacts\standalone"
 #define PluginDir      "..\src\OttoSynth.Plugin\bin\Release\net10.0-windows"
-; VST3 bundle path — Steinberg spec: <name>.vst3\Contents\x86_64-win\
-#define VST3BundleDir  "{commoncf64}\VST3\{#AppName}.vst3\Contents\x86_64-win"
+; VST3 bundle path — use ISPP string concat so AppName is expanded at preprocess time,
+; NOT as a runtime constant (which would cause "Unknown constant #AppName" at compile).
+#define VST3BundleDir "{commoncf64}\VST3\" + AppName + ".vst3\Contents\x86_64-win"
 
 [Setup]
 AppId={{A3F1C2E4-9B7D-4E8A-B6F2-1D5C3A9E7F42}
