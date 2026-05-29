@@ -43,10 +43,12 @@ jobs:
         run: dotnet test tests/OttoSynth.Core.Tests --no-restore -c Release --logger "console;verbosity=minimal"
 
       # ── Publish standalone (single-file self-contained) ──────────
+      # --no-restore is intentionally omitted: publish needs to restore
+      # for the win-x64 RID which the solution-level restore doesn't cover.
       - name: Publish Standalone
         run: >
           dotnet publish src/OttoSynth.Standalone/OttoSynth.Standalone.csproj
-          -p:PublishProfile=win-x64 -c Release --no-restore
+          -p:PublishProfile=win-x64 -c Release
 
       # ── Build VST3 plugin ────────────────────────────────────────
       - name: Build VST3 Plugin
