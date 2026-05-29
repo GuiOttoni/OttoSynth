@@ -16,8 +16,10 @@
 #define AppPublisher  "OttoSound"
 #define AppURL        "https://ottosound.io"
 #define AppExe        "OttoSynth.exe"
-#define StandaloneDir "..\artifacts\standalone"
-#define PluginDir     "..\src\OttoSynth.Plugin\bin\Release\net10.0-windows"
+#define StandaloneDir  "..\artifacts\standalone"
+#define PluginDir      "..\src\OttoSynth.Plugin\bin\Release\net10.0-windows"
+; VST3 bundle path — Steinberg spec: <name>.vst3\Contents\x86_64-win\
+#define VST3BundleDir  "{commoncf64}\VST3\{#AppName}.vst3\Contents\x86_64-win"
 
 [Setup]
 AppId={{A3F1C2E4-9B7D-4E8A-B6F2-1D5C3A9E7F42}
@@ -62,27 +64,28 @@ Name: "desktopicon"; Description: "Criar atalho na área de trabalho"; GroupDesc
 Source: "{#StandaloneDir}\{#AppExe}"; DestDir: "{app}"; \
   Flags: ignoreversion; Components: standalone
 
-; ── VST3 plugin ─────────────────────────────────────────────────
-; All VST3 entries use skipifsourcedoesntexist so ISCC never fails
-; if a file is missing (e.g. native bridge name differs between AudioPlugSharp versions).
+; ── VST3 plugin — bundle structure required by Steinberg spec ────
+; DAWs scan for directories named <Plugin>.vst3 inside the VST3 root.
+; All files go into OttoSynth.vst3\Contents\x86_64-win\ so the DAW
+; finds the native bridge and all managed DLLs in the same directory.
 Source: "{#PluginDir}\AudioPlugSharpVst.vst3"; \
-  DestDir: "{commoncf64}\VST3\{#AppName}"; \
+  DestDir: "{#VST3BundleDir}"; \
   Flags: ignoreversion skipifsourcedoesntexist; Components: vst3
 
 Source: "{#PluginDir}\OttoSynth.Plugin.dll"; \
-  DestDir: "{commoncf64}\VST3\{#AppName}"; \
+  DestDir: "{#VST3BundleDir}"; \
   Flags: ignoreversion skipifsourcedoesntexist; Components: vst3
 
 Source: "{#PluginDir}\OttoSynth.Plugin.runtimeconfig.json"; \
-  DestDir: "{commoncf64}\VST3\{#AppName}"; \
+  DestDir: "{#VST3BundleDir}"; \
   Flags: ignoreversion skipifsourcedoesntexist; Components: vst3
 
 Source: "{#PluginDir}\OttoSynth.Core.dll"; \
-  DestDir: "{commoncf64}\VST3\{#AppName}"; \
+  DestDir: "{#VST3BundleDir}"; \
   Flags: ignoreversion skipifsourcedoesntexist; Components: vst3
 
 Source: "{#PluginDir}\OttoSynth.UI.dll"; \
-  DestDir: "{commoncf64}\VST3\{#AppName}"; \
+  DestDir: "{#VST3BundleDir}"; \
   Flags: ignoreversion skipifsourcedoesntexist; Components: vst3
 
 [Icons]
@@ -96,4 +99,6 @@ Filename: "{app}\{#AppExe}"; Description: "Abrir {#AppName} agora"; \
   Flags: nowait postinstall skipifsilent; Components: standalone
 
 [UninstallDelete]
-Type: dirifempty; Name: "{commoncf64}\VST3\{#AppName}"
+Type: dirifempty; Name: "{commoncf64}\VST3\{#AppName}.vst3\Contents\x86_64-win"
+Type: dirifempty; Name: "{commoncf64}\VST3\{#AppName}.vst3\Contents"
+Type: dirifempty; Name: "{commoncf64}\VST3\{#AppName}.vst3"
