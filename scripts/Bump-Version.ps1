@@ -74,5 +74,10 @@ $new = switch ($Part) {
     'release'    { "$major.$minor.$patch" }
 }
 
-Set-Content -NoNewline $FilePath $new
+[System.IO.File]::WriteAllText($FilePath, $new)
+$verify = (Get-Content $FilePath -Raw).Trim()
+if ($verify -ne $new) {
+    Write-Error "Write verification failed: expected '$new' but got '$verify' at '$FilePath'"
+    exit 1
+}
 Write-Host "$current → $new"
