@@ -18,9 +18,14 @@
 #define AppExe        "OttoSynth.exe"
 #define StandaloneDir  "..\artifacts\standalone"
 #define PluginDir      "..\src\OttoSynth.Plugin\bin\Release\net10.0-windows"
-; VST3 bundle path — use ISPP string concat so AppName is expanded at preprocess time,
-; NOT as a runtime constant (which would cause "Unknown constant #AppName" at compile).
-#define VST3BundleDir "{commoncf64}\VST3\" + AppName + ".vst3\Contents\x86_64-win"
+; Flat deployment directory under the VST3 root.
+; AudioPlugSharp's GetPluginFactory strips exactly 6 chars ("Bridge") from its own
+; filename to locate the managed DLL: "OttoSynthBridge.vst3" -> "OttoSynth" -> OttoSynth.dll.
+; This naming only works when the bridge file keeps "Bridge" in its name.
+; Flat deployment (all files in one subfolder, no Steinberg bundle wrapper) is the correct
+; AudioPlugSharp deployment model — DAWs scan this folder and load OttoSynthBridge.vst3
+; as a flat native VST3 DLL alongside its managed dependencies.
+#define VST3Dir "{commoncf64}\VST3\" + AppName
 
 [Setup]
 AppId={{A3F1C2E4-9B7D-4E8A-B6F2-1D5C3A9E7F42}
@@ -65,43 +70,38 @@ Name: "desktopicon"; Description: "Criar atalho na área de trabalho"; GroupDesc
 Source: "{#StandaloneDir}\{#AppExe}"; DestDir: "{app}"; \
   Flags: ignoreversion; Components: standalone
 
-; ── VST3 plugin — bundle structure required by Steinberg spec ────
-; The AudioPlugSharpVst3 NuGet package provides AudioPlugSharpVst.vst3, a native
-; C++/CLI mixed-mode DLL (576 KB) that exports GetPluginFactory and bootstraps
-; the .NET CLR via Ijwhost.dll. MSBuild renames it to $(TargetName)Bridge.vst3.
-; The installer must rename it again to OttoSynth.vst3 (matching the bundle name)
-; and rename the accompanying runtimeconfig/deps to match the new DLL base name,
-; so the IJW CLR host can locate the config files at load time.
+; ── VST3 plugin — flat deployment in {commoncf64}\VST3\OttoSynth\ ──
+; All files land in the same flat directory so the bridge can locate its
+; siblings at runtime. OttoSynthBridge.vst3 is the C++/CLI entry point;
+; it MUST keep "Bridge" in the name so GetPluginFactory can derive the
+; managed assembly name by stripping those 6 chars: OttoSynth.dll.
 
-; Native VST3 entry point
+; Native VST3 entry point (keep Bridge suffix — do NOT rename)
 Source: "{#PluginDir}\OttoSynthBridge.vst3"; \
-  DestDir: "{#VST3BundleDir}"; DestName: "OttoSynth.vst3"; \
+  DestDir: "{#VST3Dir}"; \
   Flags: ignoreversion; Components: vst3
 
 ; IJW CLR bootstrapper — must be alongside the native entry point
 Source: "{#PluginDir}\Ijwhost.dll"; \
-  DestDir: "{#VST3BundleDir}"; \
+  DestDir: "{#VST3Dir}"; \
   Flags: ignoreversion; Components: vst3
 
-; Bridge runtimeconfig — ijwhost reads {DLLBaseName}.runtimeconfig.json to boot the CLR.
-; We use a custom version (installer\OttoSynth.bridge.runtimeconfig.json) instead of the
-; NuGet-generated one because the NuGet version sets LoadComponentInIsolatedContext=true,
-; which causes AudioPlugSharp's plugin-discovery ALC to create a second isolated context.
-; This double-isolation breaks type identity: IAudioPlugin from ALC-1 ≠ IAudioPlugin
-; from ALC-2, making the cast in GetPluginFactory fail and crashing the DAW scanner.
-; Setting LoadComponentInIsolatedContext=false lets all assemblies share one ALC.
+; Bridge runtimeconfig — Ijwhost reads {bridge-basename}.runtimeconfig.json to boot the CLR.
+; Custom file (not the NuGet-generated one) because we need LoadComponentInIsolatedContext=false.
+; Without it AudioPlugSharp's ALC creates a second isolated context, causing a type-identity
+; mismatch on IAudioPlugin and crashing the DAW scanner.
 Source: "OttoSynth.bridge.runtimeconfig.json"; \
-  DestDir: "{#VST3BundleDir}"; DestName: "OttoSynth.runtimeconfig.json"; \
+  DestDir: "{#VST3Dir}"; DestName: "OttoSynthBridge.runtimeconfig.json"; \
   Flags: ignoreversion; Components: vst3
 
-; All managed DLLs
+; All managed DLLs (OttoSynth.dll, OttoSynth.Core.dll, OttoSynth.UI.dll, AudioPlugSharp*.dll, etc.)
 Source: "{#PluginDir}\*.dll"; \
-  DestDir: "{#VST3BundleDir}"; \
+  DestDir: "{#VST3Dir}"; \
   Flags: ignoreversion; Components: vst3
 
-; Managed assembly dependency map (bridge files excluded entirely)
+; Managed assembly dependency map
 Source: "{#PluginDir}\OttoSynth.deps.json"; \
-  DestDir: "{#VST3BundleDir}"; \
+  DestDir: "{#VST3Dir}"; \
   Flags: ignoreversion; Components: vst3
 
 [Icons]
@@ -115,14 +115,9 @@ Filename: "{app}\{#AppExe}"; Description: "Abrir {#AppName} agora"; \
   Flags: nowait postinstall skipifsilent; Components: standalone
 
 [InstallDelete]
-; Remove stale files left by older installs (pre-AssemblyName rename).
-Type: files; Name: "{commoncf64}\VST3\{#AppName}.vst3\Contents\x86_64-win\{#AppName}.Plugin.dll"
-Type: files; Name: "{commoncf64}\VST3\{#AppName}.vst3\Contents\x86_64-win\{#AppName}.Plugin.deps.json"
-Type: files; Name: "{commoncf64}\VST3\{#AppName}.vst3\Contents\x86_64-win\{#AppName}.Plugin.runtimeconfig.json"
-; Remove stale flat install (no bundle structure) left by very old installs.
-Type: filesandordirs; Name: "{commoncf64}\VST3\{#AppName}"
+; Remove old bundle-style deployment (installers before 1.0.3 used a Steinberg bundle
+; structure which caused the bridge to derive the wrong managed assembly name).
+Type: filesandordirs; Name: "{commoncf64}\VST3\{#AppName}.vst3"
 
 [UninstallDelete]
-Type: dirifempty; Name: "{commoncf64}\VST3\{#AppName}.vst3\Contents\x86_64-win"
-Type: dirifempty; Name: "{commoncf64}\VST3\{#AppName}.vst3\Contents"
-Type: dirifempty; Name: "{commoncf64}\VST3\{#AppName}.vst3"
+Type: dirifempty; Name: "{commoncf64}\VST3\{#AppName}"
