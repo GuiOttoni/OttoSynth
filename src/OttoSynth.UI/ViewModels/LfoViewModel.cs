@@ -1,13 +1,11 @@
-using System.Reactive.Linq;
 using OttoSynth.Core;
 using OttoSynth.Core.DSP.Modulation;
 using OttoSynth.Core.Preset;
 using OttoSynth.UI.Commands;
-using ReactiveUI;
 
 namespace OttoSynth.UI.ViewModels;
 
-public class LfoViewModel : ReactiveObject
+public class LfoViewModel : ViewModelBase
 {
     private readonly SynthEngine _engine;
     private readonly int _index;
@@ -22,13 +20,13 @@ public class LfoViewModel : ReactiveObject
         Enum.GetNames<LfoGenerator.LfoShape>().ToList();
 
     private string _selectedShape = "Sine";
-    public string SelectedShape { get => _selectedShape; set => this.RaiseAndSetIfChanged(ref _selectedShape, value); }
+    public string SelectedShape { get => _selectedShape; set => SetField(ref _selectedShape, value); }
 
     private double _rate = 1.0;
-    public double Rate { get => _rate; set => this.RaiseAndSetIfChanged(ref _rate, value); }
+    public double Rate { get => _rate; set => SetField(ref _rate, value); }
 
     private double _depth = 1.0;
-    public double Depth { get => _depth; set => this.RaiseAndSetIfChanged(ref _depth, value); }
+    public double Depth { get => _depth; set => SetField(ref _depth, value); }
 
     public LfoViewModel(SynthEngine engine, int index, CommandHistory? history = null)
     {
@@ -36,30 +34,39 @@ public class LfoViewModel : ReactiveObject
         _index   = index;
         _history = history;
 
-        this.WhenAnyValue(x => x.SelectedShape, x => x.Rate, x => x.Depth)
-            .Skip(1).Subscribe(_ => { if (!_loading) Apply(); });
+        PropertyChanged += (_, e) =>
+        {
+            if (_loading) return;
+            switch (e.PropertyName)
+            {
+                case nameof(SelectedShape):
+                case nameof(Rate):
+                case nameof(Depth):
+                    Apply();
+                    break;
+            }
+        };
 
         string prefix = $"LFO{index}";
-        TrackUndo(x => x.Rate,  v => Rate  = v, $"{prefix} Rate");
-        TrackUndo(x => x.Depth, v => Depth = v, $"{prefix} Depth");
+        TrackUndo(nameof(Rate),  () => Rate,  v => Rate  = v, $"{prefix} Rate");
+        TrackUndo(nameof(Depth), () => Depth, v => Depth = v, $"{prefix} Depth");
     }
 
-    private void TrackUndo(
-        System.Linq.Expressions.Expression<Func<LfoViewModel, double>> prop,
-        Action<double> setter, string name)
+    private void TrackUndo(string propName, Func<double> getter, Action<double> setter, string name)
     {
-        double prev = 0;
-        this.WhenAnyValue(prop).Subscribe(v => prev = v);
-        this.WhenAnyValue(prop).Skip(1).Subscribe(v =>
+        double prev = getter();
+        PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName != propName) return;
+            var newVal = getter();
             var old = prev;
-            prev = v;
+            prev = newVal;
             if (_loading || _suppressHistory || _history == null) return;
-            if (Math.Abs(old - v) < 1e-10) return;
+            if (Math.Abs(old - newVal) < 1e-10) return;
             _history.Execute(new ParameterCommand(name,
                 val => { _suppressHistory = true; setter(val); _suppressHistory = false; },
-                old, v));
-        });
+                old, newVal));
+        };
     }
 
     private void Apply()

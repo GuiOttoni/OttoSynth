@@ -1,13 +1,11 @@
 using System.Collections.ObjectModel;
-using System.Reactive.Linq;
+using System.Windows.Input;
 using OttoSynth.Core.Preset;
 using OttoSynth.UI.Services;
-using ReactiveUI;
-using System.Reactive;
 
 namespace OttoSynth.UI.ViewModels;
 
-public sealed class PresetBrowserViewModel : ReactiveObject
+public sealed class PresetBrowserViewModel : ViewModelBase
 {
     private static readonly IReadOnlyList<string> AllCategories =
         ["All", "Favorites", "Bass", "Lead", "Synth", "Pad", "Pluck", "Keys", "FX", "Strings", "Ambient", "Init"];
@@ -28,47 +26,58 @@ public sealed class PresetBrowserViewModel : ReactiveObject
     public string SelectedCategory
     {
         get => _selectedCategory;
-        set { this.RaiseAndSetIfChanged(ref _selectedCategory, value); UpdateFilter(); }
+        set { SetField(ref _selectedCategory, value); UpdateFilter(); }
     }
 
     private string _searchText = string.Empty;
     public string SearchText
     {
         get => _searchText;
-        set { this.RaiseAndSetIfChanged(ref _searchText, value); UpdateFilter(); }
+        set { SetField(ref _searchText, value); UpdateFilter(); }
     }
 
     private PresetEntryViewModel? _selectedPreset;
     public PresetEntryViewModel? SelectedPreset
     {
         get => _selectedPreset;
-        set => this.RaiseAndSetIfChanged(ref _selectedPreset, value);
+        set => SetField(ref _selectedPreset, value);
     }
 
-    public ReactiveCommand<Unit, Unit> LoadSelectedCommand { get; }
-    public ReactiveCommand<Unit, Unit> ToggleFavoriteCommand { get; }
+    public ICommand LoadSelectedCommand { get; }
+    public ICommand ToggleFavoriteCommand { get; }
 
     public event Action<PresetData>? PresetLoadRequested;
 
     public PresetBrowserViewModel()
     {
-        var hasSelection = this.WhenAnyValue(x => x.SelectedPreset).Select(p => p is not null);
-
-        LoadSelectedCommand = ReactiveCommand.Create(() =>
-        {
-            if (SelectedPreset is not null)
-                PresetLoadRequested?.Invoke(SelectedPreset.Preset);
-        }, hasSelection);
-
-        ToggleFavoriteCommand = ReactiveCommand.Create(() =>
-        {
-            if (SelectedPreset is not null)
+        LoadSelectedCommand = new DelegateCommand(
+            _ =>
             {
-                SelectedPreset.IsFavorite = !SelectedPreset.IsFavorite;
-                if (_selectedCategory == "Favorites")
-                    UpdateFilter();
+                if (SelectedPreset is not null)
+                    PresetLoadRequested?.Invoke(SelectedPreset.Preset);
+            },
+            _ => SelectedPreset is not null);
+
+        ToggleFavoriteCommand = new DelegateCommand(
+            _ =>
+            {
+                if (SelectedPreset is not null)
+                {
+                    SelectedPreset.IsFavorite = !SelectedPreset.IsFavorite;
+                    if (_selectedCategory == "Favorites")
+                        UpdateFilter();
+                }
+            },
+            _ => SelectedPreset is not null);
+
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SelectedPreset))
+            {
+                ((DelegateCommand)LoadSelectedCommand).RaiseCanExecuteChanged();
+                ((DelegateCommand)ToggleFavoriteCommand).RaiseCanExecuteChanged();
             }
-        }, hasSelection);
+        };
     }
 
     public void Refresh(IEnumerable<PresetData> factory, IEnumerable<PresetData>? user = null)

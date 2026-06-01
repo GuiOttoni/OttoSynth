@@ -3,11 +3,10 @@ using OttoSynth.Core;
 using OttoSynth.Core.DSP.Oscillators;
 using OttoSynth.Core.Preset;
 using OttoSynth.UI.Commands;
-using ReactiveUI;
 
 namespace OttoSynth.UI.ViewModels;
 
-public class OscillatorsViewModel : ReactiveObject
+public class OscillatorsViewModel : ViewModelBase
 {
     private readonly SynthEngine _engine;
 

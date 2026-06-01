@@ -1,11 +1,10 @@
 using OttoSynth.Core;
 using OttoSynth.Core.Preset;
 using OttoSynth.UI.Commands;
-using ReactiveUI;
 
 namespace OttoSynth.UI.ViewModels;
 
-public class LfosViewModel : ReactiveObject
+public class LfosViewModel : ViewModelBase
 {
     public LfoViewModel Lfo1 { get; }
     public LfoViewModel Lfo2 { get; }

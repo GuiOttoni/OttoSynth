@@ -1,10 +1,9 @@
 using OttoSynth.Core.Preset;
 using OttoSynth.UI.Services;
-using ReactiveUI;
 
 namespace OttoSynth.UI.ViewModels;
 
-public class PresetEntryViewModel : ReactiveObject
+public class PresetEntryViewModel : ViewModelBase
 {
     public PresetData Preset { get; }
     public string Name     => Preset.Name;
@@ -17,7 +16,7 @@ public class PresetEntryViewModel : ReactiveObject
         get => _isFavorite;
         set
         {
-            this.RaiseAndSetIfChanged(ref _isFavorite, value);
+            SetField(ref _isFavorite, value);
             FavoritesStore.SetFavorite(Name, value);
         }
     }

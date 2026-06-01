@@ -1,12 +1,10 @@
-using System.Reactive.Linq;
 using OttoSynth.Core;
 using OttoSynth.Core.Preset;
 using OttoSynth.UI.Commands;
-using ReactiveUI;
 
 namespace OttoSynth.UI.ViewModels;
 
-public class EnvelopeViewModel : ReactiveObject
+public class EnvelopeViewModel : ViewModelBase
 {
     private readonly SynthEngine _engine;
     private CommandHistory? _history;
@@ -14,85 +12,101 @@ public class EnvelopeViewModel : ReactiveObject
     internal bool _suppressHistory;
 
     private double _ampAttack = 0.01;
-    public double AmpAttack { get => _ampAttack; set => this.RaiseAndSetIfChanged(ref _ampAttack, value); }
+    public double AmpAttack { get => _ampAttack; set => SetField(ref _ampAttack, value); }
 
     private double _ampDecay = 0.3;
-    public double AmpDecay { get => _ampDecay; set => this.RaiseAndSetIfChanged(ref _ampDecay, value); }
+    public double AmpDecay { get => _ampDecay; set => SetField(ref _ampDecay, value); }
 
     private double _ampSustain = 0.7;
-    public double AmpSustain { get => _ampSustain; set => this.RaiseAndSetIfChanged(ref _ampSustain, value); }
+    public double AmpSustain { get => _ampSustain; set => SetField(ref _ampSustain, value); }
 
     private double _ampRelease = 0.5;
-    public double AmpRelease { get => _ampRelease; set => this.RaiseAndSetIfChanged(ref _ampRelease, value); }
+    public double AmpRelease { get => _ampRelease; set => SetField(ref _ampRelease, value); }
 
     private double _filterAttack = 0.01;
-    public double FilterAttack { get => _filterAttack; set => this.RaiseAndSetIfChanged(ref _filterAttack, value); }
+    public double FilterAttack { get => _filterAttack; set => SetField(ref _filterAttack, value); }
 
     private double _filterDecay = 0.3;
-    public double FilterDecay { get => _filterDecay; set => this.RaiseAndSetIfChanged(ref _filterDecay, value); }
+    public double FilterDecay { get => _filterDecay; set => SetField(ref _filterDecay, value); }
 
     private double _filterSustain = 0.7;
-    public double FilterSustain { get => _filterSustain; set => this.RaiseAndSetIfChanged(ref _filterSustain, value); }
+    public double FilterSustain { get => _filterSustain; set => SetField(ref _filterSustain, value); }
 
     private double _filterRelease = 0.5;
-    public double FilterRelease { get => _filterRelease; set => this.RaiseAndSetIfChanged(ref _filterRelease, value); }
+    public double FilterRelease { get => _filterRelease; set => SetField(ref _filterRelease, value); }
 
     private double _freeAttack = 0.01;
-    public double FreeAttack { get => _freeAttack; set => this.RaiseAndSetIfChanged(ref _freeAttack, value); }
+    public double FreeAttack { get => _freeAttack; set => SetField(ref _freeAttack, value); }
 
     private double _freeDecay = 0.3;
-    public double FreeDecay { get => _freeDecay; set => this.RaiseAndSetIfChanged(ref _freeDecay, value); }
+    public double FreeDecay { get => _freeDecay; set => SetField(ref _freeDecay, value); }
 
     private double _freeSustain = 0.7;
-    public double FreeSustain { get => _freeSustain; set => this.RaiseAndSetIfChanged(ref _freeSustain, value); }
+    public double FreeSustain { get => _freeSustain; set => SetField(ref _freeSustain, value); }
 
     private double _freeRelease = 0.5;
-    public double FreeRelease { get => _freeRelease; set => this.RaiseAndSetIfChanged(ref _freeRelease, value); }
+    public double FreeRelease { get => _freeRelease; set => SetField(ref _freeRelease, value); }
 
     public EnvelopeViewModel(SynthEngine engine, CommandHistory? history = null)
     {
         _engine  = engine;
         _history = history;
 
-        this.WhenAnyValue(x => x.AmpAttack, x => x.AmpDecay, x => x.AmpSustain, x => x.AmpRelease)
-            .Skip(1).Subscribe(_ => { if (!_loading) ApplyAmpEnv(); });
+        PropertyChanged += (_, e) =>
+        {
+            if (_loading) return;
+            switch (e.PropertyName)
+            {
+                case nameof(AmpAttack):
+                case nameof(AmpDecay):
+                case nameof(AmpSustain):
+                case nameof(AmpRelease):
+                    ApplyAmpEnv();
+                    break;
+                case nameof(FilterAttack):
+                case nameof(FilterDecay):
+                case nameof(FilterSustain):
+                case nameof(FilterRelease):
+                    ApplyFilterEnv();
+                    break;
+                case nameof(FreeAttack):
+                case nameof(FreeDecay):
+                case nameof(FreeSustain):
+                case nameof(FreeRelease):
+                    ApplyFreeEnv();
+                    break;
+            }
+        };
 
-        this.WhenAnyValue(x => x.FilterAttack, x => x.FilterDecay, x => x.FilterSustain, x => x.FilterRelease)
-            .Skip(1).Subscribe(_ => { if (!_loading) ApplyFilterEnv(); });
-
-        this.WhenAnyValue(x => x.FreeAttack, x => x.FreeDecay, x => x.FreeSustain, x => x.FreeRelease)
-            .Skip(1).Subscribe(_ => { if (!_loading) ApplyFreeEnv(); });
-
-        TrackUndo(x => x.AmpAttack,     v => AmpAttack     = v, "AmpEnv Attack");
-        TrackUndo(x => x.AmpDecay,      v => AmpDecay      = v, "AmpEnv Decay");
-        TrackUndo(x => x.AmpSustain,    v => AmpSustain    = v, "AmpEnv Sustain");
-        TrackUndo(x => x.AmpRelease,    v => AmpRelease    = v, "AmpEnv Release");
-        TrackUndo(x => x.FilterAttack,  v => FilterAttack  = v, "FilterEnv Attack");
-        TrackUndo(x => x.FilterDecay,   v => FilterDecay   = v, "FilterEnv Decay");
-        TrackUndo(x => x.FilterSustain, v => FilterSustain = v, "FilterEnv Sustain");
-        TrackUndo(x => x.FilterRelease, v => FilterRelease = v, "FilterEnv Release");
-        TrackUndo(x => x.FreeAttack,    v => FreeAttack    = v, "FreeEnv Attack");
-        TrackUndo(x => x.FreeDecay,     v => FreeDecay     = v, "FreeEnv Decay");
-        TrackUndo(x => x.FreeSustain,   v => FreeSustain   = v, "FreeEnv Sustain");
-        TrackUndo(x => x.FreeRelease,   v => FreeRelease   = v, "FreeEnv Release");
+        TrackUndo(nameof(AmpAttack),     () => AmpAttack,     v => AmpAttack     = v, "AmpEnv Attack");
+        TrackUndo(nameof(AmpDecay),      () => AmpDecay,      v => AmpDecay      = v, "AmpEnv Decay");
+        TrackUndo(nameof(AmpSustain),    () => AmpSustain,    v => AmpSustain    = v, "AmpEnv Sustain");
+        TrackUndo(nameof(AmpRelease),    () => AmpRelease,    v => AmpRelease    = v, "AmpEnv Release");
+        TrackUndo(nameof(FilterAttack),  () => FilterAttack,  v => FilterAttack  = v, "FilterEnv Attack");
+        TrackUndo(nameof(FilterDecay),   () => FilterDecay,   v => FilterDecay   = v, "FilterEnv Decay");
+        TrackUndo(nameof(FilterSustain), () => FilterSustain, v => FilterSustain = v, "FilterEnv Sustain");
+        TrackUndo(nameof(FilterRelease), () => FilterRelease, v => FilterRelease = v, "FilterEnv Release");
+        TrackUndo(nameof(FreeAttack),    () => FreeAttack,    v => FreeAttack    = v, "FreeEnv Attack");
+        TrackUndo(nameof(FreeDecay),     () => FreeDecay,     v => FreeDecay     = v, "FreeEnv Decay");
+        TrackUndo(nameof(FreeSustain),   () => FreeSustain,   v => FreeSustain   = v, "FreeEnv Sustain");
+        TrackUndo(nameof(FreeRelease),   () => FreeRelease,   v => FreeRelease   = v, "FreeEnv Release");
     }
 
-    private void TrackUndo(
-        System.Linq.Expressions.Expression<Func<EnvelopeViewModel, double>> prop,
-        Action<double> setter, string name)
+    private void TrackUndo(string propName, Func<double> getter, Action<double> setter, string name)
     {
-        double prev = 0;
-        this.WhenAnyValue(prop).Subscribe(v => prev = v);
-        this.WhenAnyValue(prop).Skip(1).Subscribe(v =>
+        double prev = getter();
+        PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName != propName) return;
+            var newVal = getter();
             var old = prev;
-            prev = v;
+            prev = newVal;
             if (_loading || _suppressHistory || _history == null) return;
-            if (Math.Abs(old - v) < 1e-10) return;
+            if (Math.Abs(old - newVal) < 1e-10) return;
             _history.Execute(new ParameterCommand(name,
                 val => { _suppressHistory = true; setter(val); _suppressHistory = false; },
-                old, v));
-        });
+                old, newVal));
+        };
     }
 
     private void ApplyAmpEnv()

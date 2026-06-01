@@ -1,13 +1,11 @@
-using System.Reactive.Linq;
 using System.Windows;
 using OttoSynth.Core;
 using OttoSynth.Core.Preset;
 using OttoSynth.Core.Voice;
-using ReactiveUI;
 
 namespace OttoSynth.UI.ViewModels;
 
-public class OscRoutingCellViewModel : ReactiveObject
+public class OscRoutingCellViewModel : ViewModelBase
 {
     private readonly SynthEngine _engine;
     private bool _loading;
@@ -27,14 +25,14 @@ public class OscRoutingCellViewModel : ReactiveObject
     public string SelectedMode
     {
         get => _selectedMode;
-        set => this.RaiseAndSetIfChanged(ref _selectedMode, value);
+        set => SetField(ref _selectedMode, value);
     }
 
     private double _fmDepth = 0.5;
     public double FmDepth
     {
         get => _fmDepth;
-        set => this.RaiseAndSetIfChanged(ref _fmDepth, value);
+        set => SetField(ref _fmDepth, value);
     }
 
     public OscRoutingCellViewModel(SynthEngine engine, int modulator, int carrier)
@@ -46,9 +44,17 @@ public class OscRoutingCellViewModel : ReactiveObject
 
         if (!IsDiagonal)
         {
-            this.WhenAnyValue(x => x.SelectedMode, x => x.FmDepth)
-                .Skip(1)
-                .Subscribe(_ => { if (!_loading) Apply(); });
+            PropertyChanged += (_, e) =>
+            {
+                if (_loading) return;
+                switch (e.PropertyName)
+                {
+                    case nameof(SelectedMode):
+                    case nameof(FmDepth):
+                        Apply();
+                        break;
+                }
+            };
         }
     }
 
@@ -74,7 +80,7 @@ public class OscRoutingCellViewModel : ReactiveObject
     }
 }
 
-public class OscRoutingMatrixViewModel : ReactiveObject
+public class OscRoutingMatrixViewModel : ViewModelBase
 {
     private const int Size = 3;
 

@@ -1,40 +1,68 @@
-using System.Reactive.Linq;
 using System.Windows.Threading;
 using OttoSynth.Core;
 using OttoSynth.Core.Preset;
-using ReactiveUI;
 
 namespace OttoSynth.UI.ViewModels;
 
-public class MasterViewModel : ReactiveObject
+public class MasterViewModel : ViewModelBase
 {
     private readonly SynthEngine _engine;
     private bool _loading;
 
     private double _masterVolume = 0.8;
-    public double MasterVolume { get => _masterVolume; set => this.RaiseAndSetIfChanged(ref _masterVolume, value); }
+    public double MasterVolume { get => _masterVolume; set => SetField(ref _masterVolume, value); }
 
     private double _macro1 = 0;
-    public double Macro1 { get => _macro1; set => this.RaiseAndSetIfChanged(ref _macro1, value); }
+    public double Macro1 { get => _macro1; set => SetField(ref _macro1, value); }
 
     private double _macro2 = 0;
-    public double Macro2 { get => _macro2; set => this.RaiseAndSetIfChanged(ref _macro2, value); }
+    public double Macro2 { get => _macro2; set => SetField(ref _macro2, value); }
 
     private double _macro3 = 0;
-    public double Macro3 { get => _macro3; set => this.RaiseAndSetIfChanged(ref _macro3, value); }
+    public double Macro3 { get => _macro3; set => SetField(ref _macro3, value); }
 
     private double _macro4 = 0;
-    public double Macro4 { get => _macro4; set => this.RaiseAndSetIfChanged(ref _macro4, value); }
+    public double Macro4 { get => _macro4; set => SetField(ref _macro4, value); }
 
-    private string _macro1Cc = "---"; public string Macro1Cc { get => _macro1Cc; private set => this.RaiseAndSetIfChanged(ref _macro1Cc, value); }
-    private string _macro2Cc = "---"; public string Macro2Cc { get => _macro2Cc; private set => this.RaiseAndSetIfChanged(ref _macro2Cc, value); }
-    private string _macro3Cc = "---"; public string Macro3Cc { get => _macro3Cc; private set => this.RaiseAndSetIfChanged(ref _macro3Cc, value); }
-    private string _macro4Cc = "---"; public string Macro4Cc { get => _macro4Cc; private set => this.RaiseAndSetIfChanged(ref _macro4Cc, value); }
+    private string _macro1Cc = "---";
+    public string Macro1Cc { get => _macro1Cc; private set => SetField(ref _macro1Cc, value); }
 
-    private bool _macro1Learning; public bool Macro1Learning { get => _macro1Learning; private set { this.RaiseAndSetIfChanged(ref _macro1Learning, value); this.RaisePropertyChanged(nameof(Macro1LearnText)); } }
-    private bool _macro2Learning; public bool Macro2Learning { get => _macro2Learning; private set { this.RaiseAndSetIfChanged(ref _macro2Learning, value); this.RaisePropertyChanged(nameof(Macro2LearnText)); } }
-    private bool _macro3Learning; public bool Macro3Learning { get => _macro3Learning; private set { this.RaiseAndSetIfChanged(ref _macro3Learning, value); this.RaisePropertyChanged(nameof(Macro3LearnText)); } }
-    private bool _macro4Learning; public bool Macro4Learning { get => _macro4Learning; private set { this.RaiseAndSetIfChanged(ref _macro4Learning, value); this.RaisePropertyChanged(nameof(Macro4LearnText)); } }
+    private string _macro2Cc = "---";
+    public string Macro2Cc { get => _macro2Cc; private set => SetField(ref _macro2Cc, value); }
+
+    private string _macro3Cc = "---";
+    public string Macro3Cc { get => _macro3Cc; private set => SetField(ref _macro3Cc, value); }
+
+    private string _macro4Cc = "---";
+    public string Macro4Cc { get => _macro4Cc; private set => SetField(ref _macro4Cc, value); }
+
+    private bool _macro1Learning;
+    public bool Macro1Learning
+    {
+        get => _macro1Learning;
+        private set { SetField(ref _macro1Learning, value); OnPropertyChanged(nameof(Macro1LearnText)); }
+    }
+
+    private bool _macro2Learning;
+    public bool Macro2Learning
+    {
+        get => _macro2Learning;
+        private set { SetField(ref _macro2Learning, value); OnPropertyChanged(nameof(Macro2LearnText)); }
+    }
+
+    private bool _macro3Learning;
+    public bool Macro3Learning
+    {
+        get => _macro3Learning;
+        private set { SetField(ref _macro3Learning, value); OnPropertyChanged(nameof(Macro3LearnText)); }
+    }
+
+    private bool _macro4Learning;
+    public bool Macro4Learning
+    {
+        get => _macro4Learning;
+        private set { SetField(ref _macro4Learning, value); OnPropertyChanged(nameof(Macro4LearnText)); }
+    }
 
     public string Macro1LearnText => _macro1Learning ? "● WAIT" : "LEARN";
     public string Macro2LearnText => _macro2Learning ? "● WAIT" : "LEARN";
@@ -46,11 +74,19 @@ public class MasterViewModel : ReactiveObject
     public MasterViewModel(SynthEngine engine)
     {
         _engine = engine;
-        this.WhenAnyValue(x => x.MasterVolume).Skip(1).Subscribe(v => { if (!_loading) _engine.MasterVolume = v; });
-        this.WhenAnyValue(x => x.Macro1).Skip(1).Subscribe(v => { if (!_loading) _engine.SetMacro(0, v); });
-        this.WhenAnyValue(x => x.Macro2).Skip(1).Subscribe(v => { if (!_loading) _engine.SetMacro(1, v); });
-        this.WhenAnyValue(x => x.Macro3).Skip(1).Subscribe(v => { if (!_loading) _engine.SetMacro(2, v); });
-        this.WhenAnyValue(x => x.Macro4).Skip(1).Subscribe(v => { if (!_loading) _engine.SetMacro(3, v); });
+
+        PropertyChanged += (_, e) =>
+        {
+            if (_loading) return;
+            switch (e.PropertyName)
+            {
+                case nameof(MasterVolume): _engine.MasterVolume = MasterVolume; break;
+                case nameof(Macro1): _engine.SetMacro(0, Macro1); break;
+                case nameof(Macro2): _engine.SetMacro(1, Macro2); break;
+                case nameof(Macro3): _engine.SetMacro(2, Macro3); break;
+                case nameof(Macro4): _engine.SetMacro(3, Macro4); break;
+            }
+        };
     }
 
     public void ToggleLearn(int macroIndex)
