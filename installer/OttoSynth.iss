@@ -74,7 +74,7 @@ Source: "{#StandaloneDir}\{#AppExe}"; DestDir: "{app}"; \
 ; so the IJW CLR host can locate the config files at load time.
 
 ; Native VST3 entry point
-Source: "{#PluginDir}\OttoSynth.PluginBridge.vst3"; \
+Source: "{#PluginDir}\OttoSynthBridge.vst3"; \
   DestDir: "{#VST3BundleDir}"; DestName: "OttoSynth.vst3"; \
   Flags: ignoreversion; Components: vst3
 
@@ -83,14 +83,15 @@ Source: "{#PluginDir}\Ijwhost.dll"; \
   DestDir: "{#VST3BundleDir}"; \
   Flags: ignoreversion; Components: vst3
 
-; Bridge runtime config — renamed to match the installed entry point DLL base name
-Source: "{#PluginDir}\OttoSynth.PluginBridge.runtimeconfig.json"; \
+; Bridge runtimeconfig — ijwhost reads {DLLBaseName}.runtimeconfig.json to boot the CLR.
+; We use a custom version (installer\OttoSynth.bridge.runtimeconfig.json) instead of the
+; NuGet-generated one because the NuGet version sets LoadComponentInIsolatedContext=true,
+; which causes AudioPlugSharp's plugin-discovery ALC to create a second isolated context.
+; This double-isolation breaks type identity: IAudioPlugin from ALC-1 ≠ IAudioPlugin
+; from ALC-2, making the cast in GetPluginFactory fail and crashing the DAW scanner.
+; Setting LoadComponentInIsolatedContext=false lets all assemblies share one ALC.
+Source: "OttoSynth.bridge.runtimeconfig.json"; \
   DestDir: "{#VST3BundleDir}"; DestName: "OttoSynth.runtimeconfig.json"; \
-  Flags: ignoreversion; Components: vst3
-
-; Bridge deps — renamed to match the installed entry point DLL base name
-Source: "{#PluginDir}\OttoSynth.PluginBridge.deps.json"; \
-  DestDir: "{#VST3BundleDir}"; DestName: "OttoSynth.deps.json"; \
   Flags: ignoreversion; Components: vst3
 
 ; All managed DLLs
@@ -98,9 +99,8 @@ Source: "{#PluginDir}\*.dll"; \
   DestDir: "{#VST3BundleDir}"; \
   Flags: ignoreversion; Components: vst3
 
-; Plugin runtime config and deps (bridge files excluded — already handled above with DestName)
-Source: "{#PluginDir}\*.json"; \
-  Excludes: "OttoSynth.PluginBridge.*"; \
+; Managed assembly dependency map (bridge files excluded entirely)
+Source: "{#PluginDir}\OttoSynth.deps.json"; \
   DestDir: "{#VST3BundleDir}"; \
   Flags: ignoreversion; Components: vst3
 
@@ -113,6 +113,14 @@ Name: "{autodesktop}\{#AppName}";    Filename: "{app}\{#AppExe}"; \
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "Abrir {#AppName} agora"; \
   Flags: nowait postinstall skipifsilent; Components: standalone
+
+[InstallDelete]
+; Remove stale files left by older installs (pre-AssemblyName rename).
+Type: files; Name: "{commoncf64}\VST3\{#AppName}.vst3\Contents\x86_64-win\{#AppName}.Plugin.dll"
+Type: files; Name: "{commoncf64}\VST3\{#AppName}.vst3\Contents\x86_64-win\{#AppName}.Plugin.deps.json"
+Type: files; Name: "{commoncf64}\VST3\{#AppName}.vst3\Contents\x86_64-win\{#AppName}.Plugin.runtimeconfig.json"
+; Remove stale flat install (no bundle structure) left by very old installs.
+Type: filesandordirs; Name: "{commoncf64}\VST3\{#AppName}"
 
 [UninstallDelete]
 Type: dirifempty; Name: "{commoncf64}\VST3\{#AppName}.vst3\Contents\x86_64-win"

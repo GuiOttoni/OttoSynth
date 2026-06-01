@@ -7,6 +7,10 @@
     <UseWPF>true</UseWPF>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!-- AssemblyName must match the VST3 bundle name minus "Bridge" suffix.
+         The C++/CLI bridge strips "Bridge" from its own filename to locate the
+         managed DLL: OttoSynth.vst3 (bridge) -> looks for OttoSynth.dll. -->
+    <AssemblyName>OttoSynth</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
