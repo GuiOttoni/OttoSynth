@@ -17,7 +17,7 @@
 #define AppURL        "https://ottosound.io"
 #define AppExe        "OttoSynth.exe"
 #define StandaloneDir  "..\artifacts\standalone"
-#define PluginDir      "..\src\OttoSynth.Plugin\bin\Release\net10.0-windows"
+#define PluginDir      "..\src\OttoSynth.Plugin\bin\Release\net10.0-windows10.0.17763"
 ; Flat deployment directory under the VST3 root.
 ; AudioPlugSharp's GetPluginFactory strips exactly 6 chars ("Bridge") from its own
 ; filename to locate the managed DLL: "OttoSynthBridge.vst3" -> "OttoSynth" -> OttoSynth.dll.
