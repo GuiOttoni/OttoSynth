@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/OttoSynth.Core/OttoSynth.Core.csproj" />
     <Project Path="src/OttoSynth.Plugin/OttoSynth.Plugin.csproj" />
+    <Project Path="src/OttoSynth.Plugin.Clap/OttoSynth.Plugin.Clap.csproj" />
     <Project Path="src/OttoSynth.Standalone/OttoSynth.Standalone.csproj" />
     <Project Path="src/OttoSynth.UI/OttoSynth.UI.csproj" />
   </Folder>

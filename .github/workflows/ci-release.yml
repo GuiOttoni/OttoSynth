@@ -124,8 +124,10 @@ jobs:
 
       # CLAP plugin: NativeAOT publish produces a single self-contained .dll
       # which the installer renames to OttoSynth.clap.
+      # We do NOT use --no-restore here: NativeAOT publish needs RID-specific
+      # assets that the solution-level restore may not produce.
       - name: Publish CLAP Plugin (NativeAOT)
-        run: dotnet publish src/OttoSynth.Plugin.Clap/OttoSynth.Plugin.Clap.csproj -c Release -r win-x64 --no-restore
+        run: dotnet publish src/OttoSynth.Plugin.Clap/OttoSynth.Plugin.Clap.csproj -c Release -r win-x64
 
       - name: Verify CLAP Plugin Exports
         shell: pwsh
