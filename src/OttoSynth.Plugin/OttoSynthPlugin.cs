@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Windows;
@@ -75,7 +76,15 @@ public class OttoSynthPlugin : AudioPluginWPF
     public override void ShowEditor(IntPtr parentWindow)
     {
         EnsureWpfApplication();
-        Application.Current!.Dispatcher.Invoke(() => base.ShowEditor(parentWindow));
+        try
+        {
+            Application.Current!.Dispatcher.Invoke(() => base.ShowEditor(parentWindow));
+        }
+        catch (Exception ex)
+        {
+            LogException("ShowEditor", ex);
+            throw;
+        }
     }
 
     public override void HideEditor()
@@ -89,8 +98,37 @@ public class OttoSynthPlugin : AudioPluginWPF
 
     // ─── AudioPluginWPF ───────────────────────────────────────────
 
+    // AudioPlugSharp calls GetEditorView() on the host thread before ShowEditor().
+    // We must ensure the UserControl is created on the WPF STA thread so that its
+    // Dispatcher matches the thread that will later show and update it.
     public override System.Windows.Controls.UserControl GetEditorView()
-        => new PluginEditorView(_engine);
+    {
+        EnsureWpfApplication();
+        try
+        {
+            return Application.Current!.Dispatcher.Invoke(() => new PluginEditorView(_engine));
+        }
+        catch (Exception ex)
+        {
+            LogException("GetEditorView", ex);
+            throw;
+        }
+    }
+
+    private static void LogException(string context, Exception ex)
+    {
+        try
+        {
+            string dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "AudioPlugSharp");
+            Directory.CreateDirectory(dir);
+            string path = Path.Combine(dir, $"OttoSynth-crash-{DateTime.Now:yyyy-MM-dd}.log");
+            File.AppendAllText(path,
+                $"[{DateTime.Now:HH:mm:ss.fff}] {context}: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}\n\n");
+        }
+        catch { }
+    }
 
     // ─── Initialization ───────────────────────────────────────────
 

@@ -17,7 +17,7 @@
 #define AppURL        "https://ottosound.io"
 #define AppExe        "OttoSynth.exe"
 #define StandaloneDir  "..\artifacts\standalone"
-#define PluginDir      "..\src\OttoSynth.Plugin\bin\Release\net10.0-windows10.0.17763"
+#define PluginDir      "..\src\OttoSynth.Plugin\bin\Release\net10.0-windows"
 ; Flat deployment directory under the VST3 root.
 ; AudioPlugSharp's GetPluginFactory strips exactly 6 chars ("Bridge") from its own
 ; filename to locate the managed DLL: "OttoSynthBridge.vst3" -> "OttoSynth" -> OttoSynth.dll.
@@ -118,6 +118,16 @@ Filename: "{app}\{#AppExe}"; Description: "Abrir {#AppName} agora"; \
 ; Remove old bundle-style deployment (installers before 1.0.3 used a Steinberg bundle
 ; structure which caused the bridge to derive the wrong managed assembly name).
 Type: filesandordirs; Name: "{commoncf64}\VST3\{#AppName}.vst3"
+
+; Remove DLLs from previous builds that are no longer part of the plugin.
+; The *.dll glob in [Files] overwrites existing files but does NOT delete removed ones.
+Type: files; Name: "{#VST3Dir}\ReactiveUI.dll"
+Type: files; Name: "{#VST3Dir}\ReactiveUI.Wpf.dll"
+Type: files; Name: "{#VST3Dir}\Splat.dll"
+Type: files; Name: "{#VST3Dir}\System.Reactive.dll"
+Type: files; Name: "{#VST3Dir}\DynamicData.dll"
+Type: files; Name: "{#VST3Dir}\Microsoft.Windows.SDK.NET.dll"
+Type: files; Name: "{#VST3Dir}\WinRT.Runtime.dll"
 
 [UninstallDelete]
 Type: dirifempty; Name: "{commoncf64}\VST3\{#AppName}"
