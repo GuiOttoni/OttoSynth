@@ -1,4 +1,3 @@
-using System.Windows;
 using System.Windows.Controls;
 using OttoSynth.Core;
 using OttoSynth.Core.Preset;
@@ -16,14 +15,6 @@ public partial class PluginEditorView : UserControl
     {
         _engine = engine;
         _presetManager = new PresetManager();
-
-        // Load theme resources since there is no App.xaml in the plugin context
-        var theme = new ResourceDictionary
-        {
-            Source = new Uri("/OttoSynth.UI;component/Themes/ThemeMatrix.xaml", UriKind.RelativeOrAbsolute)
-        };
-        Resources.MergedDictionaries.Add(theme);
-
         InitializeComponent();
         Loaded += (_, _) => Initialize();
     }

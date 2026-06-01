@@ -61,7 +61,18 @@ public class OttoSynthPlugin : AudioPluginWPF
             _wpfThread = new Thread(() =>
             {
                 var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-                // Set after the dispatcher loop is actually pumping
+
+                // Load theme at Application level so {StaticResource} lookups in sub-controls
+                // succeed during BAML parse (before controls are added to the visual tree).
+                // Loading at UserControl.Resources instead is too late — sub-controls are
+                // instantiated before they join the parent's visual tree.
+                app.Resources.MergedDictionaries.Add(new ResourceDictionary
+                {
+                    Source = new Uri("/OttoSynth.UI;component/Themes/ThemeMatrix.xaml",
+                                     UriKind.RelativeOrAbsolute)
+                });
+
+                // Signal after the dispatcher loop is actually pumping
                 app.Dispatcher.BeginInvoke(() => _wpfAppReady.Set());
                 app.Run();
             });
@@ -124,8 +135,13 @@ public class OttoSynthPlugin : AudioPluginWPF
                 "AudioPlugSharp");
             Directory.CreateDirectory(dir);
             string path = Path.Combine(dir, $"OttoSynth-crash-{DateTime.Now:yyyy-MM-dd}.log");
-            File.AppendAllText(path,
-                $"[{DateTime.Now:HH:mm:ss.fff}] {context}: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}\n\n");
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"[{DateTime.Now:HH:mm:ss.fff}] {context}:");
+            for (var e = ex; e != null; e = e.InnerException)
+                sb.AppendLine($"  {e.GetType().Name}: {e.Message}");
+            sb.AppendLine(ex.StackTrace);
+            sb.AppendLine();
+            File.AppendAllText(path, sb.ToString());
         }
         catch { }
     }
