@@ -1,4 +1,6 @@
 using System.Text;
+using System.Threading;
+using System.Windows;
 using AudioPlugSharp;
 using AudioPlugSharpWPF;
 using OttoSynth.Core;
@@ -34,6 +36,55 @@ public class OttoSynthPlugin : AudioPluginWPF
         HasUserInterface = true;
         EditorWidth     = 1280;
         EditorHeight    = 820;
+    }
+
+    // ─── WPF Application bootstrap ────────────────────────────────
+    // DAW host processes have no WPF Application — Window.Show() crashes without one.
+    // We spin a dedicated STA background thread and wait for its dispatcher loop to
+    // start before returning, then marshal all WPF operations to that dispatcher.
+
+    private static Thread? _wpfThread;
+    private static readonly ManualResetEventSlim _wpfAppReady = new(false);
+    private static readonly object _wpfLock = new();
+
+    private static void EnsureWpfApplication()
+    {
+        if (Application.Current != null)
+            return;
+
+        lock (_wpfLock)
+        {
+            if (Application.Current != null)
+                return;
+
+            _wpfThread = new Thread(() =>
+            {
+                var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                // Set after the dispatcher loop is actually pumping
+                app.Dispatcher.BeginInvoke(() => _wpfAppReady.Set());
+                app.Run();
+            });
+            _wpfThread.SetApartmentState(ApartmentState.STA);
+            _wpfThread.IsBackground = true;
+            _wpfThread.Name = "OttoSynth WPF";
+            _wpfThread.Start();
+            _wpfAppReady.Wait(10_000);
+        }
+    }
+
+    public override void ShowEditor(IntPtr parentWindow)
+    {
+        EnsureWpfApplication();
+        Application.Current!.Dispatcher.Invoke(() => base.ShowEditor(parentWindow));
+    }
+
+    public override void HideEditor()
+    {
+        var app = Application.Current;
+        if (app != null)
+            app.Dispatcher.Invoke(() => { EditorWindow?.Close(); base.HideEditor(); });
+        else
+            base.HideEditor();
     }
 
     // ─── AudioPluginWPF ───────────────────────────────────────────
