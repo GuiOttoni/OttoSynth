@@ -80,6 +80,7 @@ coverage*/
 *.vst3
 *.dll.config
 *.runtimeconfig.json
+!installer/*.runtimeconfig.json
 
 ## OttoSynth user presets (user-generated; keep factory presets in src/)
 *.otto
