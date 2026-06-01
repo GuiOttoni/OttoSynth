@@ -122,6 +122,32 @@ jobs:
       - name: Build VST3 Plugin
         run: dotnet build src/OttoSynth.Plugin/OttoSynth.Plugin.csproj -c Release --no-restore
 
+      # CLAP plugin: NativeAOT publish produces a single self-contained .dll
+      # which the installer renames to OttoSynth.clap.
+      - name: Publish CLAP Plugin (NativeAOT)
+        run: dotnet publish src/OttoSynth.Plugin.Clap/OttoSynth.Plugin.Clap.csproj -c Release -r win-x64 --no-restore
+
+      - name: Verify CLAP Plugin Exports
+        shell: pwsh
+        run: |
+          $dll = "src/OttoSynth.Plugin.Clap/bin/Release/net10.0/win-x64/publish/OttoSynth.dll"
+          if (-not (Test-Path $dll)) { Write-Error "CLAP output not found at $dll"; exit 1 }
+          $sz = (Get-Item $dll).Length / 1MB
+          Write-Host ("CLAP size: {0:N2} MB" -f $sz)
+          # Verify the clap_entry global symbol is exported.
+          $dumpbin = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2026\Enterprise\VC\Tools\MSVC" -Recurse -Filter "dumpbin.exe" -ErrorAction SilentlyContinue | Where-Object {$_.FullName -like "*Hostx64*"} | Select-Object -First 1
+          if ($null -eq $dumpbin) {
+            $dumpbin = Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio" -Recurse -Filter "dumpbin.exe" -ErrorAction SilentlyContinue | Where-Object {$_.FullName -like "*Hostx64*"} | Select-Object -First 1
+          }
+          if ($dumpbin) {
+            $exports = & $dumpbin.FullName /EXPORTS $dll 2>&1 | Out-String
+            if ($exports -notmatch "clap_entry") {
+              Write-Error "clap_entry symbol not exported"
+              exit 1
+            }
+            Write-Host "clap_entry symbol verified"
+          }
+
       # ── Empacotamento e release (só quando há bump) ───────────────
       - name: Compile Installer
         if: steps.ver.outputs.bump != 'none'

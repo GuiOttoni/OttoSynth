@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- NativeAOT publishes the managed assembly as a native shared library.
+         The output .dll is then renamed to .clap by the installer. -->
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <NativeLib>Shared</NativeLib>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+
+    <!-- Trim aggressively — CLAP plugins have no reflection requirements. -->
+    <TrimMode>full</TrimMode>
+    <DebuggerSupport>false</DebuggerSupport>
+    <EventSourceSupport>false</EventSourceSupport>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <StackTraceSupport>false</StackTraceSupport>
+
+    <!-- The final shared lib must be named OttoSynth so the installer
+         can copy it as OttoSynth.clap into the host's CLAP folder. -->
+    <AssemblyName>OttoSynth</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OttoSynth.Core\OttoSynth.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Native C shim that exports `clap_entry` (CLAP requires a global symbol,
+       which NativeAOT cannot export directly from managed code). The shim
+       forwards init/deinit/get_factory to managed entry points. -->
+  <ItemGroup>
+    <NativeLibrary Include="$(IntermediateOutputPath)clap_shim.obj" />
+  </ItemGroup>
+
+  <Target Name="LocateVcVars" BeforeTargets="CompileClapShim">
+    <!-- Use vswhere to locate the latest Visual Studio installation; from there
+         we can derive vcvars64.bat. Works locally and on GitHub Actions windows-latest. -->
+    <Exec
+      Command="&quot;$(MSBuildThisFileDirectory)..\..\scripts\find-vcvars.cmd&quot;"
+      ConsoleToMSBuild="true"
+      EchoOff="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="VcVarsScript" />
+    </Exec>
+  </Target>
+
+  <Target Name="CompileClapShim" BeforeTargets="IlcCompile" DependsOnTargets="LocateVcVars">
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <!-- Invoke cl.exe through vcvars64 so it sees the proper INCLUDE/LIB env vars. -->
+    <Exec
+      Command="call &quot;$(VcVarsScript)&quot; &amp;&amp; cl.exe /nologo /c /O2 /TC native\clap_shim.c /Fo&quot;$(IntermediateOutputPath)clap_shim.obj&quot;"
+      WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+
+</Project>

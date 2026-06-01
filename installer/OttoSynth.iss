@@ -18,6 +18,8 @@
 #define AppExe        "OttoSynth.exe"
 #define StandaloneDir  "..\artifacts\standalone"
 #define PluginDir      "..\src\OttoSynth.Plugin\bin\Release\net10.0-windows"
+; CLAP plugin: NativeAOT publishes a single self-contained .dll to publish/
+#define ClapDir        "..\src\OttoSynth.Plugin.Clap\bin\Release\net10.0\win-x64\publish"
 ; Flat deployment directory under the VST3 root.
 ; AudioPlugSharp's GetPluginFactory strips exactly 6 chars ("Bridge") from its own
 ; filename to locate the managed DLL: "OttoSynthBridge.vst3" -> "OttoSynth" -> OttoSynth.dll.
@@ -26,6 +28,9 @@
 ; AudioPlugSharp deployment model — DAWs scan this folder and load OttoSynthBridge.vst3
 ; as a flat native VST3 DLL alongside its managed dependencies.
 #define VST3Dir "{commoncf64}\VST3\" + AppName
+; CLAP plugin is a single self-contained native shared library renamed to .clap
+; deployed at the Windows CLAP standard location: %COMMONPROGRAMFILES%\CLAP\
+#define ClapInstallDir "{commoncf64}\CLAP"
 
 [Setup]
 AppId={{A3F1C2E4-9B7D-4E8A-B6F2-1D5C3A9E7F42}
@@ -61,6 +66,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Components]
 Name: "standalone"; Description: "OttoSynth Standalone (.exe)"; Types: full compact custom; Flags: fixed
 Name: "vst3";       Description: "OttoSynth Plugin (VST3)";      Types: full
+Name: "clap";       Description: "OttoSynth Plugin (CLAP)";      Types: full
 
 [Tasks]
 Name: "desktopicon"; Description: "Criar atalho na área de trabalho"; GroupDescription: "Atalhos adicionais:"; Flags: unchecked
@@ -103,6 +109,13 @@ Source: "{#PluginDir}\*.dll"; \
 Source: "{#PluginDir}\OttoSynth.deps.json"; \
   DestDir: "{#VST3Dir}"; \
   Flags: ignoreversion; Components: vst3
+
+; ── CLAP plugin — single self-contained NativeAOT shared library ───
+; Published as OttoSynth.dll then deployed as OttoSynth.clap. No managed deps;
+; everything is statically linked into the native binary.
+Source: "{#ClapDir}\OttoSynth.dll"; \
+  DestDir: "{#ClapInstallDir}"; DestName: "OttoSynth.clap"; \
+  Flags: ignoreversion; Components: clap
 
 [Icons]
 Name: "{group}\{#AppName}";          Filename: "{app}\{#AppExe}"; Components: standalone
