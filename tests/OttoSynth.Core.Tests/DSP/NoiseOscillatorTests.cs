@@ -142,4 +142,45 @@ public class NoiseOscillatorTests
 
         Assert.True(energyHigh > energyLow * 5, "Higher level should produce more energy");
     }
+
+    [Fact]
+    public void PinkNoise_LongRun_RmsStaysInRange()
+    {
+        // Bug 2.5: Voss-McCartney's incremental sum drifts over time due to FP error.
+        // The fix recomputes the running sum from _pinkRows every 1024 samples.
+        // We verify by running ~30 seconds of audio and checking RMS stays bounded.
+        var noise = new NoiseOscillator { Type = NoiseOscillator.NoiseType.Pink, Level = 1.0 };
+        noise.Reseed(0xCafe);
+
+        const int BlockSize = 1024;
+        const int Blocks = 1300; // ~30 seconds at 44.1kHz
+        var left = new double[BlockSize];
+        var right = new double[BlockSize];
+
+        double maxBlockRms = 0;
+        double minBlockRms = double.MaxValue;
+        for (int b = 0; b < Blocks; b++)
+        {
+            Array.Clear(left, 0, BlockSize);
+            Array.Clear(right, 0, BlockSize);
+            noise.Process(left, right, BlockSize);
+
+            double sumSq = 0;
+            for (int i = 0; i < BlockSize; i++) sumSq += left[i] * left[i];
+            double rms = Math.Sqrt(sumSq / BlockSize);
+
+            maxBlockRms = Math.Max(maxBlockRms, rms);
+            minBlockRms = Math.Min(minBlockRms, rms);
+
+            // Hard fail: any block above 1.0 means drift has overflowed the [-1,1] clamp.
+            Assert.False(double.IsNaN(rms), $"NaN RMS in block {b}");
+            Assert.True(rms < 1.0, $"Block {b} RMS={rms} suggests drift > clamp");
+        }
+
+        // Soft check: RMS should be reasonably stable across the run.
+        // Pink noise RMS ≈ 0.07-0.20 with this normalization. We just require
+        // the spread to be < 5x to confirm no slow-drift trend.
+        Assert.True(maxBlockRms / minBlockRms < 5.0,
+            $"RMS varied wildly: min={minBlockRms} max={maxBlockRms} — possible drift");
+    }
 }

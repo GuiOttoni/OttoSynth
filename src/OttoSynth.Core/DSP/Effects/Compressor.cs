@@ -47,7 +47,9 @@ public sealed class Compressor : EffectBase
         double releaseCoeff = Math.Exp(-1.0 / (Math.Max(Release, 0.0001) * _sampleRate));
         double threshold = ThresholdDb;
         double ratio = Math.Max(1.0, Ratio);
-        double knee = Math.Max(0.0, KneeDb);
+        // Guard against KneeDb=0 causing div-by-zero in the soft-knee branch:
+        // (x*x)/(2*knee) → 0/0 = NaN when inDb == threshold exactly.
+        double knee = Math.Max(0.001, KneeDb);
         double makeup = MathUtils.DbToLinear(MakeupGainDb);
         double halfKnee = knee * 0.5;
         double invRatio = 1.0 - 1.0 / ratio;
@@ -81,6 +83,9 @@ public sealed class Compressor : EffectBase
             // Higher GR target = compress harder = "attack"
             double coeff = targetGrDb > _grDb ? attackCoeff : releaseCoeff;
             _grDb = targetGrDb + coeff * (_grDb - targetGrDb);
+            // Flush subnormals: the smoothing can converge to ~1e-38 which causes
+            // CPU spikes on subsequent Math.Pow/Log10 calls.
+            if (_grDb < 1e-8) _grDb = 0.0;
 
             // Apply gain reduction and makeup
             double g = MathUtils.DbToLinear(-_grDb) * makeup;

@@ -442,6 +442,10 @@ public sealed class SynthEngine
     /// <param name="sampleCount">Number of samples to process.</param>
     public void ProcessAudio(double[] outputLeft, double[] outputRight, int sampleCount)
     {
+        // Flush denormals to zero on the SSE MXCSR for the entire audio block.
+        // Prevents CPU spikes from subnormal floats in IIR filters, smoothers, and feedback paths.
+        using var _denormalGuard = DenormalGuard.Enter();
+
         try
         {
             // Defensive bounds check

@@ -161,4 +161,53 @@ public class ModMatrixTests
 
         Assert.Equal(-0.4, matrix.GetModValue(ModDestination.Osc1Level), precision: 6);
     }
+
+    [Fact]
+    public void Macros_Concurrent_ReadWrite_ProducesValidValues()
+    {
+        // Bug 1.2: macros are written by UI/MIDI thread and read by audio thread
+        // without synchronization. Without volatile reads/writes, the audio thread
+        // could observe a torn double on 32-bit platforms or stale values on x64.
+        // We exercise the contract by having one writer + one reader hammer
+        // [0,1] sweeps and checking every observed value is finite and in range.
+        var macros = new OttoSynth.Core.DSP.Modulation.MacroControls();
+        var matrix = new ModMatrix();
+        matrix.SetMacros(macros);
+
+        const int Iterations = 50_000;
+        var cts = new System.Threading.CancellationTokenSource();
+        bool observedBadValue = false;
+
+        var reader = System.Threading.Tasks.Task.Run(() =>
+        {
+            for (int i = 0; i < Iterations && !cts.IsCancellationRequested; i++)
+            {
+                matrix.SetVoiceSources(0, 0, 0, 0, 0, 0, velocity: 0, noteNumber: 60, noteRandom: 0);
+                for (int m = 0; m < 4; m++)
+                {
+                    double v = macros[m];
+                    if (double.IsNaN(v) || double.IsInfinity(v) || v < 0.0 || v > 1.0)
+                    {
+                        observedBadValue = true;
+                        return;
+                    }
+                }
+            }
+        });
+
+        var writer = System.Threading.Tasks.Task.Run(() =>
+        {
+            for (int i = 0; i < Iterations && !cts.IsCancellationRequested; i++)
+            {
+                for (int m = 0; m < 4; m++)
+                    macros[m] = (i * 0.0001 + m * 0.25) % 1.0;
+            }
+        });
+
+        bool finished = System.Threading.Tasks.Task.WaitAll([reader, writer], TimeSpan.FromSeconds(10));
+        cts.Cancel();
+
+        Assert.True(finished, "Test did not finish — possible deadlock");
+        Assert.False(observedBadValue, "Reader observed torn or out-of-range macro value");
+    }
 }

@@ -29,6 +29,11 @@ public sealed class NoiseOscillator
     private int _pinkIndex;
     private int _pinkIndexMask;
 
+    // Incrementally updating `_pinkRunningSum` accumulates floating-point error.
+    // Every PinkSumRefreshSamples we recompute the sum from `_pinkRows` to prevent drift.
+    private const int PinkSumRefreshSamples = 1024;
+    private int _pinkRefreshCounter;
+
     /// <summary>Type of noise to generate.</summary>
     public NoiseType Type
     {
@@ -137,6 +142,16 @@ public sealed class NoiseOscillator
                 _pinkRows[numTrailingZeros] = newRandom;
                 _pinkRunningSum += newRandom;
             }
+        }
+
+        // Periodically recompute the running sum from scratch to prevent
+        // floating-point drift in the incremental updates.
+        if (++_pinkRefreshCounter >= PinkSumRefreshSamples)
+        {
+            _pinkRefreshCounter = 0;
+            double sum = 0.0;
+            for (int r = 0; r < PinkRows; r++) sum += _pinkRows[r];
+            _pinkRunningSum = sum;
         }
 
         // Add white noise for the top octave and normalize

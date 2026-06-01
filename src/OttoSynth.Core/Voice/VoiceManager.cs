@@ -379,7 +379,11 @@ public sealed class VoiceManager
 
         // 3. All voices busy — steal one
         SynthVoice victim = FindStealCandidate();
-        victim.ForceSteal();
+        // Randomize fade time across [2, 5]ms to decorrelate clicks when many voices
+        // are stolen at once (e.g. fast strumming a chord). Fixed-time fades stack
+        // their micro-discontinuities at exactly the same sample offset.
+        double fadeMs = 2.0 + Random.Shared.NextDouble() * 3.0;
+        victim.ForceSteal(fadeMs);
         victim.NoteOn(noteNumber, velocity, _timestamp);
     }
 

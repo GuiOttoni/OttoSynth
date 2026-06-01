@@ -6,6 +6,7 @@ using AudioPlugSharp;
 using AudioPlugSharpWPF;
 using OttoSynth.Core;
 using OttoSynth.Core.Midi;
+using OttoSynth.Core.Plugin;
 using OttoSynth.Core.Preset;
 
 namespace OttoSynth.Plugin;
@@ -19,6 +20,7 @@ public class OttoSynthPlugin : AudioPluginWPF
     private readonly SynthEngine _engine;
     private readonly PresetManager _presetManager;
     private Dictionary<int, AudioPluginParameter> _paramsById = new();
+    private Vst3PluginHost _hostAdapter = null!;
 
     public SynthEngine Engine => _engine;
 
@@ -163,6 +165,7 @@ public class OttoSynthPlugin : AudioPluginWPF
         _paramsById = Parameters
             .Where(p => int.TryParse(p.ID, out _))
             .ToDictionary(p => int.Parse(p.ID));
+        _hostAdapter = new Vst3PluginHost(_paramsById);
     }
 
     public override void InitializeProcessing()
@@ -199,7 +202,7 @@ public class OttoSynthPlugin : AudioPluginWPF
             var json   = Encoding.UTF8.GetString(stateData);
             var preset = _presetManager.LoadFromJson(json);
             _presetManager.Apply(preset, _engine);
-            ParameterMap.CaptureAll(_engine, _paramsById);
+            ParameterDispatcher.CaptureAll(_engine, _hostAdapter);
         }
         catch { /* corrupt state — leave defaults */ }
     }
@@ -219,8 +222,7 @@ public class OttoSynthPlugin : AudioPluginWPF
         base.HandleParameterChange(parameter, newValue, sampleOffset);
 
         if (int.TryParse(parameter.ID, out int id))
-            ParameterMap.Apply(id, newValue, _engine,
-                pid => _paramsById.TryGetValue(pid, out var p) ? p.ProcessValue : 0.0);
+            ParameterDispatcher.Apply(id, newValue, _engine, _hostAdapter);
     }
 
     // ─── Audio processing ─────────────────────────────────────────

@@ -50,7 +50,10 @@ public sealed class Delay : EffectBase
     {
         int dlySamplesL = (int)Math.Clamp(TimeLeft * _sampleRate, 1.0, MaxDelaySamples - 1);
         int dlySamplesR = (int)Math.Clamp(TimeRight * _sampleRate, 1.0, MaxDelaySamples - 1);
-        double fb = Math.Clamp(Feedback, 0.0, 0.95);
+        // Ping-pong cross-couples L↔R feedback so an unstable resonance can run away
+        // even within the per-channel 0.95 limit. Cap ping-pong feedback at 0.85.
+        double fbMax = PingPong ? 0.85 : 0.95;
+        double fb = Math.Clamp(Feedback, 0.0, fbMax);
         double damp = Math.Clamp(Damping, 0.0, 0.99);
         double a = 1.0 - damp;
 
@@ -72,8 +75,9 @@ public sealed class Delay : EffectBase
             double writeL, writeR;
             if (PingPong)
             {
-                writeL = inputL + _dampR * fb;
-                writeR = inputR + _dampL * fb;
+                // Soft-clip the feedback path so cross-coupling cannot blow up.
+                writeL = inputL + Math.Tanh(_dampR * fb);
+                writeR = inputR + Math.Tanh(_dampL * fb);
             }
             else
             {

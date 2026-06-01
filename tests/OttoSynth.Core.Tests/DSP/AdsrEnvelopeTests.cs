@@ -235,4 +235,52 @@ public class AdsrEnvelopeTests
             Assert.InRange(buffer[i], 0.0, 1.0);
         }
     }
+
+    [Fact]
+    public void ZeroAttack_DoesNotProduceNaN()
+    {
+        // Edge case: AttackTime=0 historically risks div-by-zero in coefficient calc.
+        var env = new OttoSynth.Core.DSP.Envelopes.AdsrEnvelope
+        {
+            AttackTime = 0.0,
+            DecayTime = 0.1,
+            SustainLevel = 0.5,
+            ReleaseTime = 0.1
+        };
+        env.SetSampleRate(SampleRate);
+        env.NoteOn();
+
+        var buf = new double[512];
+        env.Process(buf, 512);
+
+        for (int i = 0; i < 512; i++)
+        {
+            Assert.False(double.IsNaN(buf[i]), $"NaN at {i} with AttackTime=0");
+            Assert.False(double.IsInfinity(buf[i]), $"Inf at {i} with AttackTime=0");
+        }
+    }
+
+    [Fact]
+    public void ZeroRelease_DoesNotProduceNaN()
+    {
+        var env = new OttoSynth.Core.DSP.Envelopes.AdsrEnvelope
+        {
+            AttackTime = 0.01,
+            DecayTime = 0.01,
+            SustainLevel = 0.5,
+            ReleaseTime = 0.0
+        };
+        env.SetSampleRate(SampleRate);
+        env.NoteOn();
+        var buf = new double[512];
+        env.Process(buf, 512);
+
+        env.NoteOff();
+        env.Process(buf, 512);
+
+        for (int i = 0; i < 512; i++)
+        {
+            Assert.False(double.IsNaN(buf[i]), $"NaN at {i} with ReleaseTime=0");
+        }
+    }
 }
