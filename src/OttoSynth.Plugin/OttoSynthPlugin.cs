@@ -34,11 +34,15 @@ public class OttoSynthPlugin : AudioPluginWPF
         Contact         = "contact@ottosound.io";
         PluginName      = "OttoSynth";
         PluginCategory  = "Instrument|Synth";
-        PluginVersion   = "1.0.0";
+        PluginVersion   = "1.1.0";
         PluginID        = 0x0A7C8ED1C2464B7AUL;
         HasUserInterface = true;
         EditorWidth     = 1280;
         EditorHeight    = 820;
+
+        // Declare supported sample formats. Without this, some hosts (Ableton in 32-bit
+        // float mode in particular) do not negotiate audio I/O and the plugin is silent.
+        SampleFormatsSupported = EAudioBitsPerSample.Bits32 | EAudioBitsPerSample.Bits64;
     }
 
     // ─── WPF Application bootstrap ────────────────────────────────
@@ -240,6 +244,12 @@ public class OttoSynthPlugin : AudioPluginWPF
     {
         base.Process();
 
+        // Drain all pending VST3 events (parameter changes + MIDI). Without this,
+        // events queued by the host between Process calls never reach our handlers
+        // and the engine stays at defaults — silent. This matches the canonical
+        // AudioPlugSharp example pattern (SimpleExamplePlugin / MidiExamplePlugin).
+        Host.ProcessAllEvents();
+
         // Sync host BPM
         if (Host is { IsPlaying: true, BPM: > 0 } host)
             _engine.Bpm = (int)Math.Round(host.BPM);
@@ -251,14 +261,12 @@ public class OttoSynthPlugin : AudioPluginWPF
         if (buffers == null || buffers.Length < 2) return;
         if (buffers[0] == null || buffers[1] == null) return;
 
-        // Robust sample count: prefer Host.CurrentAudioBufferSize, but fall back
-        // to the actual buffer length if it's 0 (observed in some host start-up
-        // sequences where ProcessSetup hasn't propagated yet). Always clamp to
-        // the buffer's physical length so we never write out of bounds.
-        int sampleCount = (int)Host.CurrentAudioBufferSize;
-        if (sampleCount <= 0) sampleCount = buffers[0].Length;
-        sampleCount = Math.Min(sampleCount, buffers[0].Length);
-        sampleCount = Math.Min(sampleCount, buffers[1].Length);
+        // Use the buffer's actual length as the sample count. This is the canonical
+        // AudioPlugSharp pattern — Host.CurrentAudioBufferSize is unreliable
+        // (sometimes 0 during start-up) but the Span/array Length is always correct
+        // and matches what PostProcess → WriteData will copy back to the host.
+        int sampleCount = buffers[0].Length;
+        if (buffers[1].Length < sampleCount) sampleCount = buffers[1].Length;
         if (sampleCount <= 0) return;
 
         _engine.ProcessAudio(buffers[0], buffers[1], sampleCount);
