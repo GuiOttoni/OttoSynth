@@ -64,18 +64,27 @@ public class OttoSynthPlugin : AudioPluginWPF
             {
                 var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
 
-                // Load theme at Application level so {StaticResource} lookups in sub-controls
-                // succeed during BAML parse (before controls are added to the visual tree).
-                // Loading at UserControl.Resources instead is too late — sub-controls are
-                // instantiated before they join the parent's visual tree.
-                app.Resources.MergedDictionaries.Add(new ResourceDictionary
+                // Defer theme load until the dispatcher is pumping. Pack URIs
+                // (/Assembly;component/path) need WPF's pack scheme fully wired up,
+                // which only happens reliably once Application.Run has begun.
+                // Adding to app.Resources BEFORE Run() can silently fail to resolve
+                // the pack URI, leaving the UI unstyled.
+                app.Dispatcher.BeginInvoke(() =>
                 {
-                    Source = new Uri("/OttoSynth.UI;component/Themes/ThemeMatrix.xaml",
-                                     UriKind.RelativeOrAbsolute)
+                    try
+                    {
+                        app.Resources.MergedDictionaries.Add(new ResourceDictionary
+                        {
+                            Source = new Uri("pack://application:,,,/OttoSynth.UI;component/Themes/ThemeMatrix.xaml",
+                                             UriKind.Absolute)
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        LogException("LoadAppTheme", ex);
+                    }
+                    _wpfAppReady.Set();
                 });
-
-                // Signal after the dispatcher loop is actually pumping
-                app.Dispatcher.BeginInvoke(() => _wpfAppReady.Set());
                 app.Run();
             });
             _wpfThread.SetApartmentState(ApartmentState.STA);
@@ -240,8 +249,19 @@ public class OttoSynthPlugin : AudioPluginWPF
 
         var buffers = output.GetAudioBuffers();
         if (buffers == null || buffers.Length < 2) return;
+        if (buffers[0] == null || buffers[1] == null) return;
 
-        _engine.ProcessAudio(buffers[0], buffers[1], (int)Host.CurrentAudioBufferSize);
+        // Robust sample count: prefer Host.CurrentAudioBufferSize, but fall back
+        // to the actual buffer length if it's 0 (observed in some host start-up
+        // sequences where ProcessSetup hasn't propagated yet). Always clamp to
+        // the buffer's physical length so we never write out of bounds.
+        int sampleCount = (int)Host.CurrentAudioBufferSize;
+        if (sampleCount <= 0) sampleCount = buffers[0].Length;
+        sampleCount = Math.Min(sampleCount, buffers[0].Length);
+        sampleCount = Math.Min(sampleCount, buffers[1].Length);
+        if (sampleCount <= 0) return;
+
+        _engine.ProcessAudio(buffers[0], buffers[1], sampleCount);
     }
 }
 
