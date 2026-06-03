@@ -34,7 +34,7 @@ public class OttoSynthPlugin : AudioPluginWPF
         Contact         = "contact@ottosound.io";
         PluginName      = "OttoSynth";
         PluginCategory  = "Instrument|Synth";
-        PluginVersion   = "1.1.0";
+        PluginVersion   = "1.2.1";
         PluginID        = 0x0A7C8ED1C2464B7AUL;
         HasUserInterface = true;
         EditorWidth     = 1280;
@@ -49,77 +49,106 @@ public class OttoSynthPlugin : AudioPluginWPF
     // DAW host processes have no WPF Application — Window.Show() crashes without one.
     // We spin a dedicated STA background thread and wait for its dispatcher loop to
     // start before returning, then marshal all WPF operations to that dispatcher.
+    //
+    // Critical invariant: managed exceptions must NEVER propagate out of any plugin
+    // callback into the native C++/CLI bridge. That crossing causes KERNELBASE.dll
+    // crashes in Cubase, Pro Tools and other hosts. Every public override must catch
+    // all exceptions and log them instead of rethrowing.
 
     private static Thread? _wpfThread;
     private static readonly ManualResetEventSlim _wpfAppReady = new(false);
     private static readonly object _wpfLock = new();
 
-    private static void EnsureWpfApplication()
+    // Returns true if a healthy WPF dispatcher is available after the call.
+    private static bool EnsureWpfApplication()
     {
-        if (Application.Current != null)
-            return;
-
-        lock (_wpfLock)
+        try
         {
-            if (Application.Current != null)
-                return;
+            // Fast path: dispatcher is alive.
+            var current = Application.Current;
+            if (current != null && !current.Dispatcher.HasShutdownStarted)
+                return true;
 
-            _wpfThread = new Thread(() =>
+            lock (_wpfLock)
             {
-                var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                current = Application.Current;
+                if (current != null && !current.Dispatcher.HasShutdownStarted)
+                    return true;
 
-                // Defer theme load until the dispatcher is pumping. Pack URIs
-                // (/Assembly;component/path) need WPF's pack scheme fully wired up,
-                // which only happens reliably once Application.Run has begun.
-                // Adding to app.Resources BEFORE Run() can silently fail to resolve
-                // the pack URI, leaving the UI unstyled.
-                app.Dispatcher.BeginInvoke(() =>
+                // Reset the event so the Wait below blocks until the new thread signals.
+                _wpfAppReady.Reset();
+
+                _wpfThread = new Thread(() =>
                 {
-                    try
+                    var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+
+                    // Defer theme load until the dispatcher is pumping. Pack URIs
+                    // (/Assembly;component/path) need WPF's pack scheme fully wired up,
+                    // which only happens reliably once Application.Run has begun.
+                    app.Dispatcher.BeginInvoke(() =>
                     {
-                        app.Resources.MergedDictionaries.Add(new ResourceDictionary
+                        try
                         {
-                            Source = new Uri("pack://application:,,,/OttoSynth.UI;component/Themes/ThemeMatrix.xaml",
-                                             UriKind.Absolute)
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        LogException("LoadAppTheme", ex);
-                    }
-                    _wpfAppReady.Set();
+                            app.Resources.MergedDictionaries.Add(new ResourceDictionary
+                            {
+                                Source = new Uri("pack://application:,,,/OttoSynth.UI;component/Themes/ThemeMatrix.xaml",
+                                                 UriKind.Absolute)
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            LogException("LoadAppTheme", ex);
+                        }
+                        _wpfAppReady.Set();
+                    });
+                    app.Run();
                 });
-                app.Run();
-            });
-            _wpfThread.SetApartmentState(ApartmentState.STA);
-            _wpfThread.IsBackground = true;
-            _wpfThread.Name = "OttoSynth WPF";
-            _wpfThread.Start();
-            _wpfAppReady.Wait(10_000);
+                _wpfThread.SetApartmentState(ApartmentState.STA);
+                _wpfThread.IsBackground = true;
+                _wpfThread.Name = "OttoSynth WPF";
+                _wpfThread.Start();
+                _wpfAppReady.Wait(10_000);
+
+                current = Application.Current;
+                return current != null && !current.Dispatcher.HasShutdownStarted;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogException("EnsureWpfApplication", ex);
+            return false;
         }
     }
 
     public override void ShowEditor(IntPtr parentWindow)
     {
-        EnsureWpfApplication();
         try
         {
+            if (!EnsureWpfApplication()) return;
             Application.Current!.Dispatcher.Invoke(() => base.ShowEditor(parentWindow));
         }
         catch (Exception ex)
         {
             LogException("ShowEditor", ex);
-            throw;
+            // Never rethrow — managed exception crossing native boundary = host crash.
         }
     }
 
     public override void HideEditor()
     {
-        var app = Application.Current;
-        if (app != null)
-            app.Dispatcher.Invoke(() => { EditorWindow?.Close(); base.HideEditor(); });
-        else
-            base.HideEditor();
+        try
+        {
+            var app = Application.Current;
+            if (app != null && !app.Dispatcher.HasShutdownStarted)
+                app.Dispatcher.Invoke(() => { EditorWindow?.Close(); base.HideEditor(); });
+            else
+                base.HideEditor();
+        }
+        catch (Exception ex)
+        {
+            LogException("HideEditor", ex);
+            try { base.HideEditor(); } catch { }
+        }
     }
 
     // ─── AudioPluginWPF ───────────────────────────────────────────
@@ -129,15 +158,16 @@ public class OttoSynthPlugin : AudioPluginWPF
     // Dispatcher matches the thread that will later show and update it.
     public override System.Windows.Controls.UserControl GetEditorView()
     {
-        EnsureWpfApplication();
         try
         {
+            if (!EnsureWpfApplication())
+                return new System.Windows.Controls.UserControl();
             return Application.Current!.Dispatcher.Invoke(() => new PluginEditorView(_engine));
         }
         catch (Exception ex)
         {
             LogException("GetEditorView", ex);
-            throw;
+            return new System.Windows.Controls.UserControl();
         }
     }
 
@@ -165,32 +195,53 @@ public class OttoSynthPlugin : AudioPluginWPF
 
     public override void Initialize()
     {
-        base.Initialize();
-
-        InputPorts  = Array.Empty<AudioIOPort>();
-        OutputPorts = new AudioIOPort[]
+        try
         {
-            new AudioIOPortManaged("Stereo Output", EAudioChannelConfiguration.Stereo)
-        };
+            base.Initialize();
 
-        ParameterMap.RegisterAll(this);
+            InputPorts  = Array.Empty<AudioIOPort>();
+            OutputPorts = new AudioIOPort[]
+            {
+                new AudioIOPortManaged("Stereo Output", EAudioChannelConfiguration.Stereo)
+            };
 
-        _paramsById = Parameters
-            .Where(p => int.TryParse(p.ID, out _))
-            .ToDictionary(p => int.Parse(p.ID));
-        _hostAdapter = new Vst3PluginHost(_paramsById);
+            ParameterMap.RegisterAll(this);
+
+            _paramsById = Parameters
+                .Where(p => int.TryParse(p.ID, out _))
+                .ToDictionary(p => int.Parse(p.ID));
+            _hostAdapter = new Vst3PluginHost(_paramsById);
+        }
+        catch (Exception ex)
+        {
+            LogException("Initialize", ex);
+        }
     }
 
     public override void InitializeProcessing()
     {
-        base.InitializeProcessing();
-        _engine.Initialize(Host.SampleRate, (int)Host.MaxAudioBufferSize);
+        try
+        {
+            base.InitializeProcessing();
+            _engine.Initialize(Host.SampleRate, (int)Host.MaxAudioBufferSize);
+        }
+        catch (Exception ex)
+        {
+            LogException("InitializeProcessing", ex);
+        }
     }
 
     public override void SetMaxAudioBufferSize(uint maxSamples, EAudioBitsPerSample bitsPerSample)
     {
-        base.SetMaxAudioBufferSize(maxSamples, bitsPerSample);
-        _engine.Initialize(Host.SampleRate, (int)maxSamples);
+        try
+        {
+            base.SetMaxAudioBufferSize(maxSamples, bitsPerSample);
+            _engine.Initialize(Host.SampleRate, (int)maxSamples);
+        }
+        catch (Exception ex)
+        {
+            LogException("SetMaxAudioBufferSize", ex);
+        }
     }
 
     // ─── State chunk ──────────────────────────────────────────────
@@ -223,53 +274,73 @@ public class OttoSynthPlugin : AudioPluginWPF
     // ─── MIDI ─────────────────────────────────────────────────────
 
     public override void HandleNoteOn(int channel, int noteNumber, float velocity, int sampleOffset)
-        => _engine.ProcessMidiEvent(MidiEvent.NoteOn((byte)noteNumber, (byte)(velocity * 127f)));
+    {
+        try { _engine.ProcessMidiEvent(MidiEvent.NoteOn((byte)noteNumber, (byte)(velocity * 127f))); }
+        catch (Exception ex) { LogException("HandleNoteOn", ex); }
+    }
 
     public override void HandleNoteOff(int channel, int noteNumber, float velocity, int sampleOffset)
-        => _engine.ProcessMidiEvent(MidiEvent.NoteOff((byte)noteNumber, (byte)(velocity * 127f)));
+    {
+        try { _engine.ProcessMidiEvent(MidiEvent.NoteOff((byte)noteNumber, (byte)(velocity * 127f))); }
+        catch (Exception ex) { LogException("HandleNoteOff", ex); }
+    }
 
     // ─── Automation ───────────────────────────────────────────────
 
     public override void HandleParameterChange(AudioPluginParameter parameter, double newValue, int sampleOffset)
     {
-        base.HandleParameterChange(parameter, newValue, sampleOffset);
+        try
+        {
+            base.HandleParameterChange(parameter, newValue, sampleOffset);
 
-        if (int.TryParse(parameter.ID, out int id))
-            ParameterDispatcher.Apply(id, newValue, _engine, _hostAdapter);
+            if (int.TryParse(parameter.ID, out int id))
+                ParameterDispatcher.Apply(id, newValue, _engine, _hostAdapter);
+        }
+        catch (Exception ex)
+        {
+            LogException("HandleParameterChange", ex);
+        }
     }
 
     // ─── Audio processing ─────────────────────────────────────────
 
     public override void Process()
     {
-        base.Process();
+        try
+        {
+            base.Process();
 
-        // Drain all pending VST3 events (parameter changes + MIDI). Without this,
-        // events queued by the host between Process calls never reach our handlers
-        // and the engine stays at defaults — silent. This matches the canonical
-        // AudioPlugSharp example pattern (SimpleExamplePlugin / MidiExamplePlugin).
-        Host.ProcessAllEvents();
+            // Drain all pending VST3 events (parameter changes + MIDI). Without this,
+            // events queued by the host between Process calls never reach our handlers
+            // and the engine stays at defaults — silent. This matches the canonical
+            // AudioPlugSharp example pattern (SimpleExamplePlugin / MidiExamplePlugin).
+            Host.ProcessAllEvents();
 
-        // Sync host BPM
-        if (Host is { IsPlaying: true, BPM: > 0 } host)
-            _engine.Bpm = (int)Math.Round(host.BPM);
+            // Sync host BPM
+            if (Host is { IsPlaying: true, BPM: > 0 } host)
+                _engine.Bpm = (int)Math.Round(host.BPM);
 
-        var output = OutputPorts[0] as AudioIOPortManaged;
-        if (output == null) return;
+            var output = OutputPorts[0] as AudioIOPortManaged;
+            if (output == null) return;
 
-        var buffers = output.GetAudioBuffers();
-        if (buffers == null || buffers.Length < 2) return;
-        if (buffers[0] == null || buffers[1] == null) return;
+            var buffers = output.GetAudioBuffers();
+            if (buffers == null || buffers.Length < 2) return;
+            if (buffers[0] == null || buffers[1] == null) return;
 
-        // Use the buffer's actual length as the sample count. This is the canonical
-        // AudioPlugSharp pattern — Host.CurrentAudioBufferSize is unreliable
-        // (sometimes 0 during start-up) but the Span/array Length is always correct
-        // and matches what PostProcess → WriteData will copy back to the host.
-        int sampleCount = buffers[0].Length;
-        if (buffers[1].Length < sampleCount) sampleCount = buffers[1].Length;
-        if (sampleCount <= 0) return;
+            // Use the buffer's actual length as the sample count. This is the canonical
+            // AudioPlugSharp pattern — Host.CurrentAudioBufferSize is unreliable
+            // (sometimes 0 during start-up) but the Span/array Length is always correct
+            // and matches what PostProcess → WriteData will copy back to the host.
+            int sampleCount = buffers[0].Length;
+            if (buffers[1].Length < sampleCount) sampleCount = buffers[1].Length;
+            if (sampleCount <= 0) return;
 
-        _engine.ProcessAudio(buffers[0], buffers[1], sampleCount);
+            _engine.ProcessAudio(buffers[0], buffers[1], sampleCount);
+        }
+        catch (Exception ex)
+        {
+            LogException("Process", ex);
+        }
     }
 }
 
